@@ -69,10 +69,14 @@ router.post('/messages', async (req, res) => {
   // ── Apply global model parameters (from Admin → Settings) ────────────────
   try {
     const cfg = await getSettings();
+    const maxTokensLimit = cfg.model_max_tokens ? Number(cfg.model_max_tokens) : 4096;
 
-    // max_tokens: if override is on OR request didn't set it, use global value
+    // max_tokens: if override is on OR request didn't set it, use global value.
+    // Otherwise, cap the request's max_tokens to the limit to prevent API rate limits (TPM).
     if (cfg.model_max_tokens_override || body.max_tokens == null) {
-      if (cfg.model_max_tokens) body.max_tokens = Number(cfg.model_max_tokens);
+      body.max_tokens = maxTokensLimit;
+    } else {
+      body.max_tokens = Math.min(Number(body.max_tokens), maxTokensLimit);
     }
 
     // temperature: only inject if enabled in settings

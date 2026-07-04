@@ -4,6 +4,7 @@ import { resolveModel } from '../utils/modelRouter.js';
 import { getProvider } from '../providers/index.js';
 import { recordUsage } from '../utils/rateLimiter.js';
 import { finalizeLog } from '../middleware/logger.js';
+import { getSettings } from '../db/store.js';
 import { toOpenAI } from '../translators/toProvider.js';
 import { fromOpenAI } from '../translators/fromProvider.js';
 import { streamOpenAIToAnthropic } from '../translators/streaming.js';
@@ -33,6 +34,28 @@ router.post('/responses', async (req, res) => {
     stream: isStream,
     _requestId: requestId,
   };
+
+  // ── Apply global model parameters (from Admin → Settings) ────────────────
+  try {
+    const cfg = await getSettings();
+    const maxTokensLimit = cfg.model_max_tokens ? Number(cfg.model_max_tokens) : 4096;
+
+    if (cfg.model_max_tokens_override || anthropicBody.max_tokens == null) {
+      anthropicBody.max_tokens = maxTokensLimit;
+    } else {
+      anthropicBody.max_tokens = Math.min(Number(anthropicBody.max_tokens), maxTokensLimit);
+    }
+
+    if (cfg.model_temperature_enabled) {
+      anthropicBody.temperature = Number(cfg.model_temperature ?? 1);
+    }
+    if (cfg.model_top_p_enabled) {
+      anthropicBody.top_p = Number(cfg.model_top_p ?? 1);
+    }
+    if (cfg.model_top_k_enabled) {
+      anthropicBody.top_k = Number(cfg.model_top_k ?? 40);
+    }
+  } catch { /* non-fatal */ }
 
   let resolved;
   try {
