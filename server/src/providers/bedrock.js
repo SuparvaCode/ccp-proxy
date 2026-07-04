@@ -42,20 +42,53 @@ export class BedrockProvider extends BaseProvider {
     }
     // Static list of popular Bedrock models since Bedrock list-models is administrative
     return [
+      // Claude 3.7
+      { id: 'anthropic.claude-3-7-sonnet-20250219-v1:0', name: 'Claude 3.7 Sonnet', capabilities: ['chat'] },
+      { id: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0', name: 'Claude 3.7 Sonnet (US Cross-Region)', capabilities: ['chat'] },
+
+      // Claude 3.5
       { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude 3.5 Sonnet v2', capabilities: ['chat'] },
+      { id: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude 3.5 Sonnet v2 (US Cross-Region)', capabilities: ['chat'] },
       { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0', name: 'Claude 3.5 Sonnet v1', capabilities: ['chat'] },
       { id: 'anthropic.claude-3-5-haiku-20241022-v1:0', name: 'Claude 3.5 Haiku', capabilities: ['chat'] },
+      { id: 'us.anthropic.claude-3-5-haiku-20241022-v1:0', name: 'Claude 3.5 Haiku (US Cross-Region)', capabilities: ['chat'] },
+
+      // Claude 3
       { id: 'anthropic.claude-3-opus-20240229-v1:0', name: 'Claude 3 Opus', capabilities: ['chat'] },
+      { id: 'us.anthropic.claude-3-opus-20240229-v1:0', name: 'Claude 3 Opus (US Cross-Region)', capabilities: ['chat'] },
       { id: 'anthropic.claude-3-sonnet-20240229-v1:0', name: 'Claude 3 Sonnet', capabilities: ['chat'] },
+      { id: 'us.anthropic.claude-3-sonnet-20240229-v1:0', name: 'Claude 3 Sonnet (US Cross-Region)', capabilities: ['chat'] },
       { id: 'anthropic.claude-3-haiku-20240307-v1:0', name: 'Claude 3 Haiku', capabilities: ['chat'] },
+      { id: 'us.anthropic.claude-3-haiku-20240307-v1:0', name: 'Claude 3 Haiku (US Cross-Region)', capabilities: ['chat'] },
+
+      // Llama 3.3
+      { id: 'meta.llama3-3-70b-instruct-v1:0', name: 'Llama 3.3 70B Instruct', capabilities: ['chat'] },
+      { id: 'us.meta.llama3-3-70b-instruct-v1:0', name: 'Llama 3.3 70B Instruct (US Cross-Region)', capabilities: ['chat'] },
+
+      // Llama 3.1
       { id: 'meta.llama3-1-405b-instruct-v1:0', name: 'Llama 3.1 405B Instruct', capabilities: ['chat'] },
+      { id: 'us.meta.llama3-1-405b-instruct-v1:0', name: 'Llama 3.1 405B Instruct (US Cross-Region)', capabilities: ['chat'] },
       { id: 'meta.llama3-1-70b-instruct-v1:0', name: 'Llama 3.1 70B Instruct', capabilities: ['chat'] },
+      { id: 'us.meta.llama3-1-70b-instruct-v1:0', name: 'Llama 3.1 70B Instruct (US Cross-Region)', capabilities: ['chat'] },
       { id: 'meta.llama3-1-8b-instruct-v1:0', name: 'Llama 3.1 8B Instruct', capabilities: ['chat'] },
+      { id: 'us.meta.llama3-1-8b-instruct-v1:0', name: 'Llama 3.1 8B Instruct (US Cross-Region)', capabilities: ['chat'] },
+
+      // Llama 3.2
       { id: 'meta.llama3-2-3b-instruct-v1:0', name: 'Llama 3.2 3B Instruct', capabilities: ['chat'] },
       { id: 'meta.llama3-2-1b-instruct-v1:0', name: 'Llama 3.2 1B Instruct', capabilities: ['chat'] },
+
+      // Cohere
       { id: 'cohere.command-r-plus-v1:0', name: 'Command R+', capabilities: ['chat'] },
       { id: 'cohere.command-r-v1:0', name: 'Command R', capabilities: ['chat'] },
-      { id: 'mistral.mistral-large-2407-v1:0', name: 'Mistral Large 2', capabilities: ['chat'] },
+
+      // Mistral AI
+      { id: 'mistral.mistral-large-2411-v1:0', name: 'Mistral Large 2411', capabilities: ['chat'] },
+      { id: 'mistral.mistral-large-2407-v1:0', name: 'Mistral Large 2407', capabilities: ['chat'] },
+      { id: 'mistral.mistral-codestral-2405-v1:0', name: 'Mistral Codestral', capabilities: ['chat'] },
+      { id: 'mistral.mixtral-8x7b-instruct-v1:0', name: 'Mixtral 8x7B Instruct', capabilities: ['chat'] },
+      { id: 'mistral.mistral-7b-instruct-v0:2', name: 'Mistral 7B Instruct', capabilities: ['chat'] },
+
+      // Amazon Nova
       { id: 'amazon.nova-pro-v1:0', name: 'Amazon Nova Pro', capabilities: ['chat'] },
       { id: 'amazon.nova-lite-v1:0', name: 'Amazon Nova Lite', capabilities: ['chat'] },
       { id: 'amazon.nova-micro-v1:0', name: 'Amazon Nova Micro', capabilities: ['chat'] },
