@@ -85,6 +85,21 @@ export async function initDb() {
       cached_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (provider_id, model_id)
     );
+
+    CREATE TABLE IF NOT EXISTS mcp_tools (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT DEFAULT 'custom',
+      type TEXT NOT NULL DEFAULT 'stdio',
+      command TEXT,
+      args TEXT DEFAULT '[]',
+      url TEXT,
+      env TEXT DEFAULT '{}',
+      enabled INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Seed default settings
@@ -393,6 +408,62 @@ export async function getSummaryStat() {
 
 export async function clearLogs() {
   await getDb().execute('DELETE FROM usage_logs');
+}
+
+// ─── MCP Tools ───────────────────────────────────────────────────────────────
+export async function getMcpTools() {
+  const result = await getDb().execute('SELECT * FROM mcp_tools ORDER BY name');
+  return result.rows.map(r => ({
+    ...r,
+    args: safeJson(r.args) || [],
+    env: safeJson(r.env) || {},
+  }));
+}
+
+export async function upsertMcpTool(data) {
+  const db = getDb();
+  const id = data.id || crypto.randomUUID();
+  const { name, description, category, type, command, args, url, env, enabled } = data;
+  await db.execute({
+    sql: `INSERT INTO mcp_tools (id, name, description, category, type, command, args, url, env, enabled)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            name=excluded.name, description=excluded.description, category=excluded.category,
+            type=excluded.type, command=excluded.command, args=excluded.args,
+            url=excluded.url, env=excluded.env, enabled=excluded.enabled,
+            updated_at=datetime('now')`,
+    args: [
+      id, name || 'Unnamed Tool', description || null, category || 'custom',
+      type || 'stdio', command || null,
+      JSON.stringify(Array.isArray(args) ? args : []),
+      url || null,
+      JSON.stringify(typeof env === 'object' ? env : {}),
+      enabled !== undefined ? (enabled ? 1 : 0) : 1,
+    ],
+  });
+  return id;
+}
+
+export async function deleteMcpTool(id) {
+  await getDb().execute({ sql: 'DELETE FROM mcp_tools WHERE id = ?', args: [id] });
+}
+
+// Returns mcpServers block compatible with Claude Code ~/.claude.json
+export async function getMcpConfig() {
+  const tools = await getMcpTools();
+  const enabled = tools.filter(t => t.enabled);
+  const mcpServers = {};
+  for (const t of enabled) {
+    const key = t.name.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    if (t.type === 'stdio') {
+      mcpServers[key] = { type: 'stdio', command: t.command, args: t.args || [] };
+      if (t.env && Object.keys(t.env).length > 0) mcpServers[key].env = t.env;
+    } else if (t.type === 'sse' || t.type === 'http') {
+      mcpServers[key] = { type: t.type, url: t.url };
+      if (t.env && Object.keys(t.env).length > 0) mcpServers[key].env = t.env;
+    }
+  }
+  return mcpServers;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

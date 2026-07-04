@@ -60,6 +60,12 @@ export const api = {
   // Playground
   playground: (data) => req('POST', '/playground', data),
 
+  // MCP Tools
+  getMcpTools: () => req('GET', '/mcp-tools'),
+  saveMcpTool: (data) => req('PUT', `/mcp-tools/${data.id || ''}`, data),
+  deleteMcpTool: (id) => req('DELETE', `/mcp-tools/${id}`),
+  getMcpConfig: () => req('GET', '/mcp-config'),
+
   // Streaming playground
   playgroundStream: async (data, onChunk, onDone, onError) => {
     try {

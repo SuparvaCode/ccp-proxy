@@ -8,6 +8,7 @@ import Playground from './pages/Playground.jsx';
 import Logs from './pages/Logs.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Settings from './pages/Settings.jsx';
+import McpTools from './pages/McpTools.jsx';
 import { useTheme, useToast } from './lib/hooks.js';
 import ToastContainer from './components/ToastContainer.jsx';
 
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/logs" element={<Logs toast={toast} />} />
           <Route path="/analytics" element={<Analytics toast={toast} />} />
           <Route path="/settings" element={<Settings toast={toast} />} />
+          <Route path="/mcp-tools" element={<McpTools toast={toast} />} />
         </Routes>
       </Layout>
       <ToastContainer toasts={toasts} removeToast={removeToast} />

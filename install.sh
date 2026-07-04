@@ -1,96 +1,102 @@
-#!/bin/bash
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#   â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— 
-#  â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—   Claude Code Proxy (CCP)
-#  â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•   Powered by SuparvaCodes
-#  â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•”â•â•â•â• 
-#  â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘        Copyright (c) 2026 Suparva
-#   â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â•â•šâ•â• 
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════
+#   ██████╗ ██████╗██████╗
+#  ██╔════╝██╔════╝██╔══██╗   Claude Code Proxy (CCP)
+#  ██║     ██║     ██████╔╝   Powered by SuparvaCodes
+#  ██║     ██║     ██╔═══╝
+#  ╚██████╗╚██████╗██║        Copyright (c) 2026 Suparva
+#   ╚═════╝ ╚═════╝╚═╝
+# ═══════════════════════════════════════════════════════════════
 
-set -e
+set -euo pipefail
 
-# Colors for formatting
-VIOLET='\033[1;35m'
+# Terminal colours
+MAGENTA='\033[1;35m'
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
-YELLOW='\033[0;33m'
+YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+GRAY='\033[0;90m'
+NC='\033[0m'
 
-echo -e "${VIOLET}âš¡ Installing Claude Code Proxy (CCP)...${NC}"
+# Resolve absolute install directory (the dir containing this script)
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 1. Check Node.js
+echo -e "\n${MAGENTA}⚡ Installing Claude Code Proxy (CCP)...${NC}"
+echo -e "${GRAY}📁 Install directory: ${INSTALL_DIR}${NC}"
+
+# ── 1. Check Node.js ──────────────────────────────────────────
 if command -v node >/dev/null 2>&1; then
-    echo -e "${GREEN}âœ” Node.js found: $(node -v)${NC}"
+  echo -e "${GREEN}✔ Node.js found: $(node -v)${NC}"
 else
-    echo -e "${YELLOW}âš  Node.js is not installed.${NC}"
-    echo -e "Please install Node.js using your package manager (brew, apt, etc.) and run this script again."
-    echo -e "Visit https://nodejs.org/ for details."
-    exit 1
+  echo -e "${YELLOW}⚠  Node.js is not installed.${NC}"
+  echo -e "Please install it via your package manager and re-run this script."
+  echo -e "  macOS:  brew install node"
+  echo -e "  Ubuntu: sudo apt install nodejs npm"
+  echo -e "  Or visit https://nodejs.org/"
+  exit 1
 fi
 
-# 2. Install Project Dependencies
-echo -e "${CYAN}ðŸ“¦ Installing dependencies (server & admin)...${NC}"
+# ── 2. Install dependencies ───────────────────────────────────
+echo -e "\n${CYAN}📦 Installing dependencies (server & admin)...${NC}"
+cd "$INSTALL_DIR"
 npm run install:all
 
-# 3. Create .env Configuration
-ENV_FILE="server/.env"
-ENV_EXAMPLE="server/.env.example"
+# ── 3. Create .env ────────────────────────────────────────────
+ENV_FILE="${INSTALL_DIR}/server/.env"
+ENV_EXAMPLE="${INSTALL_DIR}/server/.env.example"
 
 if [ ! -f "$ENV_FILE" ]; then
-    echo -e "${CYAN}âš™ Generating secure environment configuration...${NC}"
-    cp "$ENV_EXAMPLE" "$ENV_FILE"
-    
-    # Generate a random 32-character encryption key (compatible with macOS and Linux)
-    ENCRYPTION_KEY=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-    
-    # Update .env file
-    if [ "$(uname)" = "Darwin" ]; then
-        # macOS sed syntax
-        sed -i '' 's/CCP_AUTH_TOKEN=super/CCP_AUTH_TOKEN=super/g' "$ENV_FILE"
-        sed -i '' "s/CCP_ENCRYPTION_SECRET=change_this_to_a_long_random_secret_value_32chars/CCP_ENCRYPTION_SECRET=$ENCRYPTION_KEY/g" "$ENV_FILE"
-    else
-        # Linux sed syntax
-        sed -i 's/CCP_AUTH_TOKEN=super/CCP_AUTH_TOKEN=super/g' "$ENV_FILE"
-        sed -i "s/CCP_ENCRYPTION_SECRET=change_this_to_a_long_random_secret_value_32chars/CCP_ENCRYPTION_SECRET=$ENCRYPTION_KEY/g" "$ENV_FILE"
-    fi
-    echo -e "${GREEN}âœ” Created server/.env with secure encryption key.${NC}"
+  echo -e "\n${CYAN}⚙  Generating secure environment configuration...${NC}"
+  cp "$ENV_EXAMPLE" "$ENV_FILE"
+  ENCRYPTION_KEY=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 || true)
+  if [ "$(uname)" = "Darwin" ]; then
+    sed -i '' "s|CCP_ENCRYPTION_SECRET=change_this_to_a_long_random_secret_value_32chars|CCP_ENCRYPTION_SECRET=${ENCRYPTION_KEY}|g" "$ENV_FILE"
+  else
+    sed -i "s|CCP_ENCRYPTION_SECRET=change_this_to_a_long_random_secret_value_32chars|CCP_ENCRYPTION_SECRET=${ENCRYPTION_KEY}|g" "$ENV_FILE"
+  fi
+  echo -e "${GREEN}✔ Created server/.env with secure random encryption key.${NC}"
 else
-    echo -e "${GREEN}âœ” Existing server/.env found. Keeping configuration.${NC}"
+  echo -e "${GREEN}✔ Existing server/.env found — keeping your configuration.${NC}"
 fi
 
-# 4. Build Production Frontend
-echo -e "${CYAN}ðŸ— Building production frontend assets...${NC}"
+# ── 4. Build frontend ─────────────────────────────────────────
+echo -e "\n${CYAN}🏗  Building production frontend assets...${NC}"
+cd "$INSTALL_DIR"
 npm run build:admin
 
-# 5. Create ccp command helper
-echo -e "${CYAN}🚀 Creating ccp launch command...${NC}"
-cat << 'EOF' > ccp
-#!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# ── 5. Create ./ccp launcher (restart-loop shell script) ──────
+echo -e "\n${CYAN}🚀 Creating ./ccp launcher script...${NC}"
+cat > "${INSTALL_DIR}/ccp" <<LAUNCHEOF
+#!/usr/bin/env bash
+CCP_DIR="${INSTALL_DIR}"
 while true; do
-  node "$DIR/server/src/index.js"
-  EXIT_CODE=$?
-  if [ $EXIT_CODE -eq 42 ]; then
-    echo "🔄 Restarting Claude Code Proxy (CCP) server..."
+  node "\${CCP_DIR}/server/src/index.js"
+  EXIT_CODE=\$?
+  if [ "\$EXIT_CODE" -eq 42 ]; then
+    echo "🔄 Restarting CCP server (requested by admin)..."
+    sleep 0.5
   else
-    exit $EXIT_CODE
+    exit \$EXIT_CODE
   fi
 done
-EOF
+LAUNCHEOF
+chmod +x "${INSTALL_DIR}/ccp"
+echo -e "${GREEN}✔ Created ${INSTALL_DIR}/ccp${NC}"
 
-chmod +x ccp
-echo -e "${GREEN}✔ Created ccp launcher script (./ccp)${NC}"
-
-# 6. Global CLI registration (ccp-start)
-echo -e "${CYAN}🔗 Registering global 'ccp-start' command...${NC}"
-if npm link; then
-    echo -e "${GREEN}✔ Registered 'ccp-start' globally. You can now start the proxy from anywhere by typing: ccp-start${NC}"
+# ── 6. Global ccp-start command ───────────────────────────────
+echo -e "\n${CYAN}🔗 Registering global 'ccp-start' command...${NC}"
+cd "$INSTALL_DIR"
+if npm link 2>/dev/null; then
+  echo -e "${GREEN}✔ Global 'ccp-start' registered. Run it from anywhere.${NC}"
 else
-    echo -e "${YELLOW}⚠ Failed to register 'ccp-start' globally automatically.${NC}"
-    echo -e "You can run ${CYAN}npm link${NC} manually (with ${CYAN}sudo${NC} if permissions require it) in the project folder to enable it."
+  echo -e "${YELLOW}⚠  Could not auto-register 'ccp-start' (may need sudo).${NC}"
+  echo -e "   Run: ${CYAN}sudo npm link${NC} inside ${INSTALL_DIR}"
 fi
 
-echo -e "\n${GREEN}🎉 CCP installation completed successfully!${NC}"
-echo -e "▶ Run ${CYAN}./ccp${NC} or the global ${CYAN}ccp-start${NC} command to start the proxy server."
+echo -e "\n${GREEN}🎉 CCP installation complete!${NC}"
+echo -e "${GRAY}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e " ${CYAN}▶ Start server:${NC}   ccp-start"
+echo -e "                   OR: ${INSTALL_DIR}/ccp"
+echo -e " ${CYAN}🌐 Admin panel:${NC}   http://127.0.0.1:8082/admin"
+echo -e "${GRAY}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

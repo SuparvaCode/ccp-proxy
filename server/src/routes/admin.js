@@ -4,6 +4,7 @@ import {
   getModelRoutes, upsertModelRoute, deleteModelRoute,
   getLogs, getUsageStats, getModelStats, cacheModels, getCachedModels,
   updateConfig, getSettings, getSummaryStat, clearLogs, getDb,
+  getMcpTools, upsertMcpTool, deleteMcpTool, getMcpConfig,
 } from '../db/store.js';
 import { getProvider, PROVIDER_CLASSES } from '../providers/index.js';
 import { getAllUsageWindows } from '../utils/rateLimiter.js';
@@ -130,6 +131,29 @@ router.post('/server/restart', (_req, res) => {
   setTimeout(() => {
     process.exit(42);
   }, 1000);
+});
+
+// ─── MCP Tools ───────────────────────────────────────────────────────────────────
+router.get('/mcp-tools', async (_req, res) => {
+  res.json(await getMcpTools());
+});
+
+router.put('/mcp-tools/:id?', async (req, res) => {
+  try {
+    const id = await upsertMcpTool({ ...req.body, id: req.params.id || req.body.id });
+    res.json({ id, success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete('/mcp-tools/:id', async (req, res) => {
+  await deleteMcpTool(req.params.id);
+  res.json({ success: true });
+});
+
+router.get('/mcp-config', async (_req, res) => {
+  res.json(await getMcpConfig());
 });
 
 // ─── Playground ───────────────────────────────────────────────────────────────

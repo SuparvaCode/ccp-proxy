@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Plug, Cpu, GitBranch, FlaskConical, ScrollText, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, Plug, Cpu, GitBranch, FlaskConical, ScrollText, BarChart3, Settings, Wrench } from 'lucide-react';
 
 const navItems = [
   { label: 'Overview', items: [
@@ -14,6 +14,7 @@ const navItems = [
   { label: 'Tools', items: [
     { to: '/playground', icon: FlaskConical, label: 'Playground' },
     { to: '/logs', icon: ScrollText, label: 'Request Logs' },
+    { to: '/mcp-tools', icon: Wrench, label: 'MCP Tools' },
     { to: '/settings', icon: Settings, label: 'Settings' },
   ]},
 ];
