@@ -108,6 +108,14 @@ export async function initDb() {
     INSERT OR IGNORE INTO settings (key, value) VALUES ('log_level', '"info"');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('max_log_entries', '10000');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('port', '8082');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_max_tokens', '8192');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_temperature_enabled', 'false');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_temperature', '1');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_top_p_enabled', 'false');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_top_p', '1');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_top_k_enabled', 'false');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_top_k', '40');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('model_max_tokens_override', 'false');
   `);
 
   // Prime the in-memory auth token from DB

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { resolveModel } from '../utils/modelRouter.js';
 import { getProvider } from '../providers/index.js';
-import { getProviders, getCachedModels } from '../db/store.js';
+import { getProviders, getCachedModels, getSettings } from '../db/store.js';
 import { recordUsage } from '../utils/rateLimiter.js';
 import { finalizeLog } from '../middleware/logger.js';
 
@@ -65,6 +65,31 @@ router.post('/messages', async (req, res) => {
   // Attach resolved info to body for provider adapters
   body._resolvedModel = resolved.model_id;
   body._requestId = requestId;
+
+  // ── Apply global model parameters (from Admin → Settings) ────────────────
+  try {
+    const cfg = await getSettings();
+
+    // max_tokens: if override is on OR request didn't set it, use global value
+    if (cfg.model_max_tokens_override || body.max_tokens == null) {
+      if (cfg.model_max_tokens) body.max_tokens = Number(cfg.model_max_tokens);
+    }
+
+    // temperature: only inject if enabled in settings
+    if (cfg.model_temperature_enabled) {
+      body.temperature = Number(cfg.model_temperature ?? 1);
+    }
+
+    // top_p: only inject if enabled in settings
+    if (cfg.model_top_p_enabled) {
+      body.top_p = Number(cfg.model_top_p ?? 1);
+    }
+
+    // top_k: only inject if enabled in settings (passed as extra for providers that support it)
+    if (cfg.model_top_k_enabled) {
+      body.top_k = Number(cfg.model_top_k ?? 40);
+    }
+  } catch { /* non-fatal — proceed with client-provided values */ }
 
   const onComplete = ({ inputTokens = 0, outputTokens = 0 } = {}) => {
     recordUsage(resolved.provider_id, { inputTokens, outputTokens });

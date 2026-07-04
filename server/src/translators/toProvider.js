@@ -4,7 +4,7 @@
  */
 
 export function toOpenAI(anthropicBody, targetModel) {
-  const { messages, system, max_tokens, temperature, top_p, stop_sequences, tools, tool_choice, stream } = anthropicBody;
+  const { messages, system, max_tokens, temperature, top_p, top_k, stop_sequences, tools, tool_choice, stream } = anthropicBody;
 
   const oaiMessages = [];
 
@@ -30,6 +30,7 @@ export function toOpenAI(anthropicBody, targetModel) {
   if (max_tokens) body.max_tokens = max_tokens;
   if (temperature !== undefined) body.temperature = temperature;
   if (top_p !== undefined) body.top_p = top_p;
+  if (top_k !== undefined) body.top_k = top_k;
   if (stop_sequences && stop_sequences.length) body.stop = stop_sequences;
 
   // Tools

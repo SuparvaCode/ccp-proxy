@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
-import { Save, Shield, Key, Server, Eye, EyeOff, Copy, CheckCircle } from 'lucide-react';
+import { Save, Shield, Key, Server, Eye, EyeOff, Copy, CheckCircle, SlidersHorizontal, Info } from 'lucide-react';
 import { api } from '../lib/api.js';
 
 export default function Settings({ toast }) {
@@ -16,6 +16,14 @@ export default function Settings({ toast }) {
     auth_token: 'super',
     log_level: 'info',
     max_log_entries: 10000,
+    model_max_tokens: 8192,
+    model_max_tokens_override: false,
+    model_temperature_enabled: false,
+    model_temperature: 1,
+    model_top_p_enabled: false,
+    model_top_p: 1,
+    model_top_k_enabled: false,
+    model_top_k: 40,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,6 +114,158 @@ export default function Settings({ toast }) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Global Model Parameters */}
+        <div className="card" style={{ borderColor: 'rgba(16,185,129,0.25)' }}>
+          <div className="card-header">
+            <div className="card-title"><SlidersHorizontal size={15} /> Global Model Parameters</div>
+            <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontSize: 11, padding: '2px 8px', borderRadius: 20 }}>Live — no restart needed</span>
+          </div>
+          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+              These values are injected into every proxied request. Toggle each parameter on to enable it.
+              Disabled parameters are not sent — the model uses its own defaults.
+            </p>
+
+            {/* Max Tokens */}
+            <div style={{ padding: '14px 16px', background: 'var(--bg-elevated)', borderRadius: 10, border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Max Output Tokens</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Maximum tokens the model can generate per response</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Always override</span>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={!!settings.model_max_tokens_override}
+                      onChange={e => setSettings(s => ({ ...s, model_max_tokens_override: e.target.checked }))} />
+                    <span className="toggle-track" />
+                  </label>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <input type="range" min={256} max={128000} step={256}
+                  value={settings.model_max_tokens || 8192}
+                  onChange={e => setSettings(s => ({ ...s, model_max_tokens: parseInt(e.target.value) }))}
+                  style={{ flex: 1, accentColor: 'var(--primary)' }} />
+                <input type="number" min={1} max={200000}
+                  value={settings.model_max_tokens || 8192}
+                  onChange={e => setSettings(s => ({ ...s, model_max_tokens: parseInt(e.target.value) || 8192 }))}
+                  className="input" style={{ width: 90, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 13 }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Info size={11} />
+                {settings.model_max_tokens_override
+                  ? 'Always replaces what the client sends.'
+                  : 'Only applied when the client request has no max_tokens set.'}
+              </div>
+            </div>
+
+            {/* Temperature */}
+            <div style={{ padding: '14px 16px', background: 'var(--bg-elevated)', borderRadius: 10, border: `1px solid ${settings.model_temperature_enabled ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`, transition: 'border-color 0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: settings.model_temperature_enabled ? 12 : 0 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    Temperature
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
+                      {settings.model_temperature_enabled ? Number(settings.model_temperature ?? 1).toFixed(2) : 'disabled'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Controls randomness. 0 = deterministic, 2 = very creative. Not all providers accept values &gt; 1.</div>
+                </div>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={!!settings.model_temperature_enabled}
+                    onChange={e => setSettings(s => ({ ...s, model_temperature_enabled: e.target.checked }))} />
+                  <span className="toggle-track" />
+                </label>
+              </div>
+              {settings.model_temperature_enabled && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>0</span>
+                  <input type="range" min={0} max={2} step={0.01}
+                    value={settings.model_temperature ?? 1}
+                    onChange={e => setSettings(s => ({ ...s, model_temperature: parseFloat(e.target.value) }))}
+                    style={{ flex: 1, accentColor: '#f59e0b' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>2</span>
+                  <input type="number" min={0} max={2} step={0.01}
+                    value={settings.model_temperature ?? 1}
+                    onChange={e => setSettings(s => ({ ...s, model_temperature: parseFloat(e.target.value) || 1 }))}
+                    className="input" style={{ width: 70, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 13 }} />
+                </div>
+              )}
+            </div>
+
+            {/* Top P */}
+            <div style={{ padding: '14px 16px', background: 'var(--bg-elevated)', borderRadius: 10, border: `1px solid ${settings.model_top_p_enabled ? 'rgba(59,130,246,0.4)' : 'var(--border)'}`, transition: 'border-color 0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: settings.model_top_p_enabled ? 12 : 0 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    Top P
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
+                      {settings.model_top_p_enabled ? Number(settings.model_top_p ?? 1).toFixed(2) : 'disabled'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Nucleus sampling — sample from top P% probability mass. Most providers support this.</div>
+                </div>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={!!settings.model_top_p_enabled}
+                    onChange={e => setSettings(s => ({ ...s, model_top_p_enabled: e.target.checked }))} />
+                  <span className="toggle-track" />
+                </label>
+              </div>
+              {settings.model_top_p_enabled && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>0</span>
+                  <input type="range" min={0} max={1} step={0.01}
+                    value={settings.model_top_p ?? 1}
+                    onChange={e => setSettings(s => ({ ...s, model_top_p: parseFloat(e.target.value) }))}
+                    style={{ flex: 1, accentColor: '#3b82f6' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>1</span>
+                  <input type="number" min={0} max={1} step={0.01}
+                    value={settings.model_top_p ?? 1}
+                    onChange={e => setSettings(s => ({ ...s, model_top_p: parseFloat(e.target.value) || 1 }))}
+                    className="input" style={{ width: 70, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 13 }} />
+                </div>
+              )}
+            </div>
+
+            {/* Top K */}
+            <div style={{ padding: '14px 16px', background: 'var(--bg-elevated)', borderRadius: 10, border: `1px solid ${settings.model_top_k_enabled ? 'rgba(139,92,246,0.4)' : 'var(--border)'}`, transition: 'border-color 0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: settings.model_top_k_enabled ? 12 : 0 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    Top K
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
+                      {settings.model_top_k_enabled ? (settings.model_top_k ?? 40) : 'disabled'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Sample from top K tokens only. Supported by Ollama, Gemini, llama.cpp. Not accepted by OpenAI-style APIs.</div>
+                </div>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={!!settings.model_top_k_enabled}
+                    onChange={e => setSettings(s => ({ ...s, model_top_k_enabled: e.target.checked }))} />
+                  <span className="toggle-track" />
+                </label>
+              </div>
+              {settings.model_top_k_enabled && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>1</span>
+                  <input type="range" min={1} max={200} step={1}
+                    value={settings.model_top_k ?? 40}
+                    onChange={e => setSettings(s => ({ ...s, model_top_k: parseInt(e.target.value) }))}
+                    style={{ flex: 1, accentColor: '#8b5cf6' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>200</span>
+                  <input type="number" min={1} max={1000} step={1}
+                    value={settings.model_top_k ?? 40}
+                    onChange={e => setSettings(s => ({ ...s, model_top_k: parseInt(e.target.value) || 40 }))}
+                    className="input" style={{ width: 70, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 13 }} />
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
 
