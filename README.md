@@ -14,7 +14,7 @@ A high-performance Node.js proxy server that mimics Anthropic and OpenAI API end
 Developed and maintained by **Suparva (SuparvaCodes)**.
 
 ## Features
-- 🔌 **15 Providers Supported**: Google AI Studio, DeepSeek, OpenRouter, Groq, Mistral, Codestral, Cerebras, Fireworks, NVIDIA NIM, Together AI, xAI, Cohere, Ollama, LM Studio, llama.cpp
+- 🔌 **16 Providers Supported**: Google AI Studio, DeepSeek, OpenRouter, Groq, Mistral, Codestral, Cerebras, Fireworks, NVIDIA NIM, Together AI, xAI, Cohere, Amazon Bedrock, Ollama, LM Studio, llama.cpp
 - 🔄 **SSE Streaming**: Full server-sent event (SSE) translation to Anthropic format
 - 🧠 **Reasoning/Thinking Blocks**: Support for DeepSeek R1 and Gemini Thinking outputs
 - 🛠️ **Function Calling**: Full tool call compatibility
@@ -103,6 +103,7 @@ Address models directly by formatting the model name as `{PROVIDER_ID}/{MODEL_ID
 - `google/gemini-2.5-pro`
 - `groq/llama-3.3-70b-versatile`
 - `deepseek/deepseek-chat`
+- `bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0`
 
 Or configure custom routing rules inside the admin panel.
 
@@ -127,6 +128,7 @@ Access the management dashboard at:
 | Together AI | `together` | Cloud |
 | xAI (Grok) | `xai` | Cloud |
 | Cohere | `cohere` | Cloud |
+| Amazon Bedrock | `bedrock` | Cloud |
 | Ollama | `ollama` | Local |
 | LM Studio | `lmstudio` | Local |
 | llama.cpp | `llamacpp` | Local |
