@@ -19,7 +19,7 @@ export class OpenRouterProvider extends OpenAICompatProvider {
   authHeader() {
     return {
       Authorization: `Bearer ${this.apiKey}`,
-      'HTTP-Referer': 'https://github.com/suparva/ccp-proxy',
+      'HTTP-Referer': 'https://github.com/SuparvaCode/ccp-proxy',
       'X-Title': 'Claude Code Proxy',
     };
   }

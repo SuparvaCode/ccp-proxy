@@ -33,20 +33,20 @@ Choose the quick installer command below matching your operating system. Ensure 
 Install and configure CCP instantly:
 ```powershell
 # Run installer from GitHub (replace with your repo URL once uploaded)
-irm -useb https://raw.githubusercontent.com/suparva/ccp-proxy/main/install.ps1 | iex
+irm -useb https://raw.githubusercontent.com/SuparvaCode/ccp-proxy/main/install.ps1 | iex
 ```
 
 ### 🍎 macOS & 🐧 Linux (Bash)
 Install and configure CCP instantly:
 ```bash
 # Run installer from GitHub (replace with your repo URL once uploaded)
-curl -fsSL https://raw.githubusercontent.com/suparva/ccp-proxy/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SuparvaCode/ccp-proxy/main/install.sh | bash
 ```
 
 ### ⚙️ Alternative (Manual Clone)
 If you prefer to configure manually:
 ```bash
-git clone https://github.com/suparva/ccp-proxy.git
+git clone https://github.com/SuparvaCode/ccp-proxy.git
 cd ccp-proxy
 npm run install:all
 cp server/.env.example server/.env
