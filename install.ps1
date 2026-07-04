@@ -1,13 +1,12 @@
-# ═══════════════════════════════════════════════════════════════
-#   ██████╗ ██████╗██████╗ 
-#  ██╔════╝██╔════╝██╔══██╗   Claude Code Proxy (CCP)
-#  ██║     ██║     ██████╔╝   by SuparvaCode
-#  ██║     ██║     ██╔═══╝ 
-#  ╚██████╗╚██████╗██║        Copyright (c) 2026 Suparva
-#   ╚═════╝ ╚═════╝╚═╝ 
-# ═══════════════════════════════════════════════════════════════
+# ===============================================================
+#   CCP (Claude Code Proxy) - Installer
+#   Copyright (c) 2026 Suparva (SuparvaCode)
+# ===============================================================
 
-# ── Self-relaunch when piped via irm|iex ──────────────────────────────────────
+# Keep window open always
+$ErrorActionPreference = "Continue"
+
+# -- Self-relaunch when piped via irm|iex --------------------------------------
 # When run as  irm ... | iex  the script has no file path ($PSCommandPath is empty)
 # and the PowerShell window closes the instant the script ends.
 # Fix: download to a temp file and open a proper persistent window.
@@ -31,34 +30,31 @@ if (-not $PSCommandPath) {
     exit 0
 }
 
-# ── Main installer (runs from file, window stays open via -NoExit) ─────────────
+# -- Main installer (runs from file, window stays open via -NoExit) -------------
 $ErrorActionPreference = "Continue"
 
 Clear-Host
 
 Write-Host ""
-Write-Host "  ██████╗ ██████╗██████╗ " -ForegroundColor Magenta
-Write-Host " ██╔════╝██╔════╝██╔══██╗  Claude Code Proxy" -ForegroundColor Magenta
-Write-Host " ██║     ██║     ██████╔╝  by SuparvaCode" -ForegroundColor Magenta
-Write-Host " ╚██████╗╚██████╗██║" -ForegroundColor Magenta
-Write-Host "  ╚═════╝ ╚═════╝╚═╝" -ForegroundColor Magenta
+Write-Host "  CCP - Claude Code Proxy" -ForegroundColor Magenta
+Write-Host "  by SuparvaCode" -ForegroundColor Magenta
 Write-Host ""
-Write-Host "⚡ CCP Installer" -ForegroundColor Cyan
-Write-Host ("─" * 52) -ForegroundColor DarkGray
+Write-Host "Starting CCP Installer..." -ForegroundColor Cyan
+Write-Host "----------------------------------------------------" -ForegroundColor DarkGray
 
 $InstallDir = "$env:USERPROFILE\.ccp-proxy"
-Write-Host "📁 Install location: $InstallDir" -ForegroundColor Cyan
+Write-Host "Install location: $InstallDir" -ForegroundColor Cyan
 Write-Host ""
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# -- Helpers --------------------------------------------------------------------
 function Step($n, $total, $msg) {
     Write-Host "[ $n/$total ] $msg" -ForegroundColor White
 }
-function OK($msg)   { Write-Host "          ✔ $msg" -ForegroundColor Green }
-function FAIL($msg) { Write-Host "          ✘ $msg" -ForegroundColor Red }
-function INFO($msg) { Write-Host "            $msg" -ForegroundColor DarkGray }
+function OK($msg)   { Write-Host "          [OK] $msg" -ForegroundColor Green }
+function FAIL($msg) { Write-Host "          [ERROR] $msg" -ForegroundColor Red }
+function INFO($msg) { Write-Host "               $msg" -ForegroundColor DarkGray }
 
-# ── 1. Node.js ────────────────────────────────────────────────────────────────
+# -- 1. Node.js ----------------------------------------------------------------
 Step 1 5 "Checking Node.js..."
 $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
 if ($nodeCmd) {
@@ -77,11 +73,11 @@ if ($nodeCmd) {
 }
 Write-Host ""
 
-# ── 2. Git ────────────────────────────────────────────────────────────────────
+# -- 2. Git --------------------------------------------------------------------
 Step 2 5 "Checking Git..."
 $gitCmd = Get-Command git -ErrorAction SilentlyContinue
 if (-not $gitCmd) {
-    INFO "Git not found — trying winget..."
+    INFO "Git not found - trying winget..."
     & winget install --id Git.Git -e --silent 2>&1 | Out-Null
     # Refresh PATH
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
@@ -98,12 +94,12 @@ if ($gitCmd) {
 }
 Write-Host ""
 
-# ── 3. Clone / update ─────────────────────────────────────────────────────────
+# -- 3. Clone / update ---------------------------------------------------------
 Step 3 5 "Fetching CCP source..."
 $repoUrl = "https://github.com/SuparvaCode/ccp-proxy.git"
 
 if (Test-Path (Join-Path $InstallDir ".git")) {
-    INFO "Existing install found — pulling latest..."
+    INFO "Existing install found - pulling latest..."
     & git -C $InstallDir pull --ff-only 2>&1 | Out-Null
     OK "Updated to latest version"
 } else {
@@ -119,7 +115,7 @@ if (Test-Path (Join-Path $InstallDir ".git")) {
 }
 Write-Host ""
 
-# ── 4. Install deps + build ───────────────────────────────────────────────────
+# -- 4. Install deps + build ---------------------------------------------------
 Step 4 5 "Installing dependencies and building..."
 
 INFO "Installing server dependencies..."
@@ -169,7 +165,7 @@ if ($LASTEXITCODE -ne 0) {
 OK "Admin UI built"
 Write-Host ""
 
-# ── 5. Register ccp-start ─────────────────────────────────────────────────────
+# -- 5. Register ccp-start -----------------------------------------------------
 Step 5 5 "Registering 'ccp-start' command..."
 
 $npmPrefix  = (& npm prefix -g 2>&1).Trim()
@@ -190,11 +186,11 @@ $localCmd = Join-Path $InstallDir "ccp.cmd"
 Set-Content -Path $localCmd -Value $cmdContent -Encoding ASCII
 OK "Local launcher: $localCmd"
 
-# ── Done ───────────────────────────────────────────────────────────────────────
+# -- Done -----------------------------------------------------------------------
 Write-Host ""
-Write-Host ("─" * 52) -ForegroundColor DarkGray
-Write-Host " 🎉  CCP installed successfully!" -ForegroundColor Green
-Write-Host ("─" * 52) -ForegroundColor DarkGray
+Write-Host "----------------------------------------------------" -ForegroundColor DarkGray
+Write-Host " CCP installed successfully!" -ForegroundColor Green
+Write-Host "----------------------------------------------------" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  Start server:     " -NoNewline -ForegroundColor White
 Write-Host "ccp-start" -ForegroundColor Cyan
@@ -207,6 +203,6 @@ Write-Host "  Set env vars for Claude Code:" -ForegroundColor White
 Write-Host '    $env:ANTHROPIC_BASE_URL    = "http://127.0.0.1:8082"' -ForegroundColor DarkGray
 Write-Host '    $env:ANTHROPIC_AUTH_TOKEN  = "super"' -ForegroundColor DarkGray
 Write-Host ""
-Write-Host ("─" * 52) -ForegroundColor DarkGray
+Write-Host "----------------------------------------------------" -ForegroundColor DarkGray
 Write-Host ""
 Read-Host "Press Enter to close"
