@@ -1,0 +1,13 @@
+{
+  "name": "ccp-proxy",
+  "version": "1.0.0",
+  "description": "Claude Code Proxy (CCP) — API proxy for Claude Code and Codex",
+  "private": true,
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../admin && npm install",
+    "dev:server": "cd server && npm run dev",
+    "dev:admin": "cd admin && npm run dev",
+    "build:admin": "cd admin && npm run build",
+    "start": "cd server && node src/index.js"
+  }
+}

@@ -1,0 +1,83 @@
+================================================================================
+FREE CLAUDE CODE (FCC) - ENDPOINT MIMICKING AND ARCHITECTURE
+================================================================================
+
+This document details how the Free Claude Code proxy mimics official API endpoints,
+redirects client tool traffic, handles request/response translations, and exposes
+advanced customization options.
+
+1. HOW ENDPOINT MIMICKING WORKS
+================================
+Free Claude Code starts a local FastAPI web server (defaulting to http://127.0.0.1:8082)
+that exposes routes matching the official Anthropic and OpenAI API structures:
+
+- Route Handlers (see api/routes.py):
+  * POST `/v1/messages` - Mimics the Anthropic Messages endpoint (used by Claude Code).
+  * POST `/v1/messages/count_tokens` - Mimics the Anthropic token counter.
+  * GET  `/v1/models` - Lists available models, allowing Claude Code's native `/model` selector to work.
+  * POST `/v1/responses` - Mimics the OpenAI Responses endpoint (used by Codex).
+
+- Security Validation (see api/dependencies.py):
+  * Requests are authenticated via `require_api_key`.
+  * The proxy checks for the API key in the `x-api-key`, `authorization` (Bearer), or `anthropic-auth-token` headers.
+  * The key must match the configured `ANTHROPIC_AUTH_TOKEN` (which defaults to "freecc").
+
+2. CLIENT REDIRECTION & STRUCTURES
+==================================
+To route traffic through the proxy without modifying the client source code, FCC uses
+special wrapper launchers that configure environment variables and configurations:
+
+- CLAUDE CODE CLI (launched via `fcc-claude`):
+  * Official Environment Hooks: The official @anthropic-ai/claude-code CLI supports overriding its server endpoint via standard environment variables.
+  * Launcher Logic:
+    - Sets `ANTHROPIC_BASE_URL` to point to the local FCC server (`http://127.0.0.1:8082`).
+    - Sets `ANTHROPIC_AUTH_TOKEN` to the configured token (defaults to "freecc").
+    - Configures `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` to query model configurations dynamically from the proxy.
+    - Sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=190000` to prevent token limits.
+    - Launches the official `claude` CLI command.
+
+- CODEX CLI (launched via `fcc-codex`):
+  * Official Hooks: Codex uses configuration arguments to override backend providers.
+  * Launcher Logic:
+    - Queries the proxy's `/v1/models` to generate a temporary model catalog.
+    - Sets `FCC_CODEX_API_KEY` to the authentication token.
+    - Executes `codex` CLI while passing configuration overrides via command-line arguments:
+      * `-c model_provider="fcc"`
+      * `-c model_providers.fcc.name="Free Claude Code"`
+      * `-c model_providers.fcc.base_url="http://127.0.0.1:8082/v1"`
+      * `-c model_providers.fcc.env_key="FCC_CODEX_API_KEY"`
+      * `-c model_providers.fcc.wire_api="responses"`
+      * `-c model_catalog_json="<path_to_generated_catalog>"`
+
+3. TRANSLATION & PROTOCOL ALIGNMENT
+====================================
+When a client sends a request to the proxy, FCC translates the request to the target backend and translates the response back into the client-expected protocol format:
+
+- Request Mapping:
+  * Receives Anthropic Messages protocol requests.
+  * Determines the target model and backend provider (e.g. Google AI Studio, DeepSeek, Ollama).
+  * Converts system prompts, user/assistant messages, temperatures, max tokens, and tool schemas/parameters to match the backend's specific API requirements.
+
+- Stream/SSE Translation:
+  * Since coding agents require real-time output, requests use Streaming (Server-Sent Events).
+  * The proxy listens to the backend provider's event stream, translates their custom streaming tokens (e.g. Gemini or DeepSeek stream packets), and maps them into official Anthropic stream event format (`message_start`, `content_block_start`, `content_block_delta`, `message_delta`, `message_stop`).
+
+- Tool Execution:
+  * Intercepts tool calls and translates tool declarations and execution responses (tool inputs/outputs) to match what the backend expects, returning the final result to the client in the format it expects.
+
+- Thinking/Reasoning Blocks:
+  * Maps thinking blocks (e.g. from DeepSeek R1 or Gemini Thinking) into Anthropic's native `thinking` structures so coding clients can render thought processes properly.
+
+4. ADVANCED OPTIONS AND FEATURES
+================================
+Beyond endpoint redirection, Free Claude Code offers the following capabilities:
+
+- Local Admin UI:
+  * Accessible at `http://127.0.0.1:8082/admin` (restricted to loopback/local access).
+  * Allows updating settings, entering provider API keys, testing connections, and applying settings instantly.
+
+- Per-Model Routing:
+  * You can map specific Claude variants (Opus, Sonnet, Haiku, or a global fallback) to different backend engines. For example, you can route Haiku to a fast local model (e.g. Ollama/Qwen) and Sonnet to DeepSeek or Gemini.
+
+- 18 Provider Backends:
+  * Direct support for Google AI Studio, DeepSeek, NVIDIA NIM, Mistral, Mistral Codestral, Cerebras, Groq, Fireworks, Z.ai, LM Studio, llama.cpp, Ollama, and more.

@@ -1,0 +1,117 @@
+import { Router } from 'express';
+import crypto from 'crypto';
+import { resolveModel } from '../utils/modelRouter.js';
+import { getProvider } from '../providers/index.js';
+import { getProviders, getCachedModels } from '../db/store.js';
+import { recordUsage } from '../utils/rateLimiter.js';
+import { finalizeLog } from '../middleware/logger.js';
+
+const router = Router();
+
+// ─── GET /v1/models ──────────────────────────────────────────────────────────
+router.get('/models', async (_req, res) => {
+  try {
+    const providers = getProviders().filter(p => p.enabled);
+    const allModels = [];
+
+    for (const p of providers) {
+      const cached = await getCachedModels(p.id);
+      for (const m of cached) {
+        allModels.push({
+          id: `${p.id}/${m.model_id}`,
+          object: 'model',
+          created: Math.floor(Date.now() / 1000),
+          owned_by: p.id,
+          display_name: `${p.name} / ${m.model_name || m.model_id}`,
+          context_length: m.context_length,
+        });
+      }
+    }
+
+    // Also add Claude aliases for model routing
+    const variants = ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'];
+    for (const v of variants) {
+      allModels.push({ id: v, object: 'model', created: Math.floor(Date.now() / 1000), owned_by: 'ccp', display_name: v });
+    }
+
+    res.json({ object: 'list', data: allModels });
+  } catch (e) {
+    res.status(500).json({ error: { type: 'server_error', message: e.message } });
+  }
+});
+
+// ─── POST /v1/messages ───────────────────────────────────────────────────────
+router.post('/messages', async (req, res) => {
+  const requestId = req.ccpLog?.request_id || `msg_${crypto.randomUUID().slice(0, 24)}`;
+  const body = req.body;
+  const modelStr = body.model || 'default';
+  const isStream = !!body.stream;
+
+  let resolved;
+  try {
+    resolved = resolveModel(modelStr);
+    if (!resolved.provider_id) {
+      return res.status(400).json({
+        type: 'error',
+        error: { type: 'invalid_request_error', message: `No provider route found for model: "${modelStr}". Add a model route in the admin panel or use "{PROVIDER_ID}/{MODEL_ID}" format.` },
+      });
+    }
+  } catch (e) {
+    return res.status(400).json({ type: 'error', error: { type: 'invalid_request_error', message: e.message } });
+  }
+
+  const provider = await getProvider(resolved.provider_id);
+
+  // Attach resolved info to body for provider adapters
+  body._resolvedModel = resolved.model_id;
+  body._requestId = requestId;
+
+  const onComplete = ({ inputTokens = 0, outputTokens = 0 } = {}) => {
+    recordUsage(resolved.provider_id, { inputTokens, outputTokens });
+    finalizeLog(req, {
+      provider_id: resolved.provider_id,
+      model_id: resolved.model_id,
+      claude_variant: resolved.claude_variant,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      status: 200,
+    });
+  };
+
+  try {
+    if (isStream) {
+      await provider.completeStream(body, res, requestId, onComplete);
+    } else {
+      const result = await provider.complete(body);
+      onComplete({ inputTokens: result.usage?.input_tokens, outputTokens: result.usage?.output_tokens });
+      res.json(result);
+    }
+  } catch (e) {
+    console.error(`[${resolved.provider_id}]`, e.message);
+    finalizeLog(req, { provider_id: resolved.provider_id, model_id: resolved.model_id, status: e.status || 500, error_message: e.message });
+
+    if (!res.headersSent) {
+      res.status(e.status || 500).json({
+        type: 'error',
+        error: { type: 'api_error', message: e.message, provider: resolved.provider_id },
+      });
+    }
+  }
+});
+
+// ─── POST /v1/messages/count_tokens ──────────────────────────────────────────
+router.post('/messages/count_tokens', (req, res) => {
+  // Rough estimation: 4 chars per token
+  const body = req.body;
+  const messages = body.messages || [];
+  let charCount = 0;
+  for (const m of messages) {
+    const c = m.content;
+    if (typeof c === 'string') charCount += c.length;
+    else if (Array.isArray(c)) charCount += c.filter(b => b.type === 'text').reduce((s, b) => s + (b.text?.length || 0), 0);
+  }
+  if (body.system) charCount += (typeof body.system === 'string' ? body.system : JSON.stringify(body.system)).length;
+  res.json({ input_tokens: Math.ceil(charCount / 4) });
+});
+
+export default router;
