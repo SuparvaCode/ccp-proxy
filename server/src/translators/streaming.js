@@ -238,7 +238,7 @@ function mapFinishReason(r) {
   return 'end_turn';
 }
 
-export async function streamBedrockToAnthropic(res, bedrockStream, model, requestId, onComplete) {
+export async function streamBedrockToAnthropic(res, bedrockStream, model, requestId, onComplete, prefill) {
   const msgId = requestId || `msg_${crypto.randomUUID().slice(0, 24)}`;
   let inputTokens = 0;
   let outputTokens = 0;
@@ -265,6 +265,22 @@ export async function streamBedrockToAnthropic(res, bedrockStream, model, reques
   });
 
   send('ping', { type: 'ping' });
+
+  // If there is pre-filled text, emit it now as the initial text delta block
+  if (prefill) {
+    send('content_block_start', {
+      type: 'content_block_start',
+      index: blockIndex,
+      content_block: { type: 'text', text: '' },
+    });
+    send('content_block_delta', {
+      type: 'content_block_delta',
+      index: blockIndex,
+      delta: { type: 'text_delta', text: prefill },
+    });
+    textBlockStarted = true;
+    outputTokens += Math.max(1, Math.ceil(prefill.length / 4));
+  }
 
   try {
     for await (const chunk of bedrockStream) {

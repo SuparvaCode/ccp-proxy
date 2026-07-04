@@ -146,7 +146,7 @@ export class BedrockProvider extends BaseProvider {
     const input = this.translateToBedrock(anthropicBody, modelId);
     const command = new ConverseCommand(input);
     const response = await this.client.send(command);
-    return this.translateFromBedrock(response, modelId, anthropicBody._requestId);
+    return this.translateFromBedrock(response, modelId, anthropicBody._requestId, anthropicBody._prefill);
   }
 
   async completeStream(anthropicBody, res, requestId, onComplete) {
@@ -157,14 +157,28 @@ export class BedrockProvider extends BaseProvider {
     const input = this.translateToBedrock(anthropicBody, modelId);
     const command = new ConverseStreamCommand(input);
     const response = await this.client.send(command);
-    await streamBedrockToAnthropic(res, response.stream, modelId, requestId, onComplete);
+    await streamBedrockToAnthropic(res, response.stream, modelId, requestId, onComplete, anthropicBody._prefill);
   }
 
   translateToBedrock(anthropicBody, modelId) {
     const { messages, system, max_tokens, temperature, top_p, stop_sequences, tools } = anthropicBody;
 
+    // Bedrock Converse API throws an error if the last message has role='assistant' (prefill).
+    // Pop the final assistant message if present, and save its content to prepend to response logic.
+    let prefill = '';
+    const cleanMessages = [...(messages || [])];
+    if (cleanMessages.length > 0 && cleanMessages[cleanMessages.length - 1].role === 'assistant') {
+      const lastMsg = cleanMessages.pop();
+      if (typeof lastMsg.content === 'string') {
+        prefill = lastMsg.content;
+      } else if (Array.isArray(lastMsg.content)) {
+        prefill = lastMsg.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+      }
+    }
+    anthropicBody._prefill = prefill;
+
     const bedrockMessages = [];
-    for (const msg of (messages || [])) {
+    for (const msg of cleanMessages) {
       const role = msg.role;
       const content = [];
 
@@ -255,13 +269,22 @@ export class BedrockProvider extends BaseProvider {
     return input;
   }
 
-  translateFromBedrock(response, model, requestId) {
+  translateFromBedrock(response, model, requestId, prefill) {
     const content = [];
     const bedrockContent = response.output?.message?.content || [];
 
+    // Prepend prefill block if any
+    if (prefill) {
+      content.push({ type: 'text', text: prefill });
+    }
+
     for (const block of bedrockContent) {
       if (block.text) {
-        content.push({ type: 'text', text: block.text });
+        if (prefill && content.length > 0 && content[content.length - 1].type === 'text') {
+          content[content.length - 1].text += block.text;
+        } else {
+          content.push({ type: 'text', text: block.text });
+        }
       } else if (block.toolUse) {
         content.push({
           type: 'tool_use',
