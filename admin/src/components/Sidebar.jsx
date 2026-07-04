@@ -52,7 +52,7 @@ export default function Sidebar({ serverOnline }) {
           <div className={`status-dot${serverOnline ? '' : ' offline'}`} />
           <span>{serverOnline ? 'Server Online' : 'Server Offline'}</span>
         </div>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>:8082</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{`:${window.location.port || '8082'}`}</span>
       </div>
     </aside>
   );

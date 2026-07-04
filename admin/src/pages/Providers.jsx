@@ -6,7 +6,7 @@ import { useProviders } from '../lib/hooks.js';
 const PROVIDER_ICONS = {
   google: '🟦', deepseek: '🔵', openrouter: '🟣', groq: '🟠', mistral: '🟡',
   codestral: '🟡', cerebras: '🩷', fireworks: '🔴', nvidia: '🟢', together: '🔵',
-  xai: '⚫', cohere: '🟩', ollama: '🦙', lmstudio: '🎛️', llamacpp: '🦎',
+  xai: '⚫', cohere: '🟩', ollama: '🦙', lmstudio: '🎛️', llamacpp: '🦎', bedrock: '☁️',
 };
 
 function ProviderModal({ provider, onClose, onSave, toast }) {
@@ -15,6 +15,7 @@ function ProviderModal({ provider, onClose, onSave, toast }) {
     base_url: provider?.base_url || '',
     api_key: '',
     enabled: provider?.enabled ?? 1,
+    extra_config: provider?.extra_config || {},
   });
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -36,11 +37,11 @@ function ProviderModal({ provider, onClose, onSave, toast }) {
   };
 
   const handleTest = async () => {
-    // Save first then test
     setTesting(true);
     setTestResult(null);
     try {
-      if (form.api_key) await api.saveProvider(provider.id, { ...form, id: provider.id });
+      // Save first then test so backend has the keys
+      await api.saveProvider(provider.id, { ...form, id: provider.id });
       const r = await api.testProvider(provider.id);
       setTestResult(r);
       toast.success(`Connection OK — ${r.model_count} models found`);
@@ -60,26 +61,134 @@ function ProviderModal({ provider, onClose, onSave, toast }) {
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="input-group">
-            <label className="input-label">Base URL</label>
-            <input className="input input-mono" value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} placeholder="https://api.provider.com" />
-          </div>
-          {provider.type === 'cloud' && (
-            <div className="input-group">
-              <label className="input-label">API Key</label>
-              <div className="input-wrapper">
-                <input
-                  className="input input-mono"
-                  type={showKey ? 'text' : 'password'}
-                  value={form.api_key}
-                  onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))}
-                  placeholder="Leave blank to keep existing key"
-                />
-                <button className="input-suffix" style={{ pointerEvents: 'all', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)' }} onClick={() => setShowKey(!showKey)}>
-                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
+          {provider.id === 'bedrock' ? (
+            <>
+              <div className="input-group">
+                <label className="input-label">Connection Mode</label>
+                <select
+                  className="input select"
+                  value={form.extra_config?.use_openai_compat ? 'openai' : 'aws'}
+                  onChange={e => {
+                    const isOai = e.target.value === 'openai';
+                    setForm(f => ({
+                      ...f,
+                      extra_config: { ...f.extra_config, use_openai_compat: isOai }
+                    }));
+                  }}
+                >
+                  <option value="aws">AWS IAM Credentials (Native Bedrock SDK)</option>
+                  <option value="openai">OpenAI-Compatible Bearer Token (Gateway/Mantle)</option>
+                </select>
               </div>
-            </div>
+
+              {form.extra_config?.use_openai_compat ? (
+                <>
+                  <div className="input-group">
+                    <label className="input-label">Base URL (e.g. Bedrock gateway proxy endpoint)</label>
+                    <input 
+                      className="input input-mono" 
+                      value={form.base_url} 
+                      onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} 
+                      placeholder="https://your-bedrock-gateway.com/v1" 
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">API Key / Bearer Token</label>
+                    <div className="input-wrapper">
+                      <input
+                        className="input input-mono"
+                        type={showKey ? 'text' : 'password'}
+                        value={form.api_key}
+                        onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))}
+                        placeholder="Leave blank to keep existing key"
+                      />
+                      <button className="input-suffix" style={{ pointerEvents: 'all', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)' }} onClick={() => setShowKey(!showKey)}>
+                        {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="input-group">
+                    <label className="input-label">AWS Region (e.g. us-east-1)</label>
+                    <input 
+                      className="input input-mono" 
+                      value={form.extra_config?.aws_region || ''} 
+                      onChange={e => setForm(f => ({ 
+                        ...f, 
+                        extra_config: { ...f.extra_config, aws_region: e.target.value } 
+                      }))} 
+                      placeholder="us-east-1" 
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">AWS Access Key ID</label>
+                    <input 
+                      className="input input-mono" 
+                      value={form.extra_config?.aws_access_key_id || ''} 
+                      onChange={e => setForm(f => ({ 
+                        ...f, 
+                        extra_config: { ...f.extra_config, aws_access_key_id: e.target.value } 
+                      }))} 
+                      placeholder="AKIA..." 
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">AWS Secret Access Key</label>
+                    <div className="input-wrapper">
+                      <input
+                        className="input input-mono"
+                        type={showKey ? 'text' : 'password'}
+                        value={form.api_key}
+                        onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))}
+                        placeholder="Leave blank to keep existing key"
+                      />
+                      <button className="input-suffix" style={{ pointerEvents: 'all', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)' }} onClick={() => setShowKey(!showKey)}>
+                        {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">AWS Session Token (Optional)</label>
+                    <input 
+                      className="input input-mono" 
+                      type="password"
+                      value={form.extra_config?.aws_session_token || ''} 
+                      onChange={e => setForm(f => ({ 
+                        ...f, 
+                        extra_config: { ...f.extra_config, aws_session_token: e.target.value } 
+                      }))} 
+                      placeholder="Session token (if using temporary credentials)" 
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="input-group">
+                <label className="input-label">Base URL</label>
+                <input className="input input-mono" value={form.base_url} onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))} placeholder="https://api.provider.com" />
+              </div>
+              {provider.type === 'cloud' && (
+                <div className="input-group">
+                  <label className="input-label">API Key</label>
+                  <div className="input-wrapper">
+                    <input
+                      className="input input-mono"
+                      type={showKey ? 'text' : 'password'}
+                      value={form.api_key}
+                      onChange={e => setForm(f => ({ ...f, api_key: e.target.value }))}
+                      placeholder="Leave blank to keep existing key"
+                    />
+                    <button className="input-suffix" style={{ pointerEvents: 'all', cursor: 'pointer', background: 'none', border: 'none', color: 'var(--text-muted)' }} onClick={() => setShowKey(!showKey)}>
+                      {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <label className="toggle-switch">

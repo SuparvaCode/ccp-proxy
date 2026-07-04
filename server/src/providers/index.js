@@ -13,6 +13,7 @@ import { CohereProvider } from './cohere.js';
 import { OllamaProvider } from './ollama.js';
 import { LMStudioProvider } from './lmstudio.js';
 import { LlamaCppProvider } from './llamacpp.js';
+import { BedrockProvider } from './bedrock.js';
 
 export const PROVIDER_CLASSES = {
   google: GoogleProvider,
@@ -30,6 +31,7 @@ export const PROVIDER_CLASSES = {
   ollama: OllamaProvider,
   lmstudio: LMStudioProvider,
   llamacpp: LlamaCppProvider,
+  bedrock: BedrockProvider,
 };
 
 /**

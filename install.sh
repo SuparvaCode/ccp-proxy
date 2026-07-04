@@ -65,15 +65,32 @@ echo -e "${CYAN}ðŸ— Building production frontend assets...${NC}"
 npm run build:admin
 
 # 5. Create ccp command helper
-echo -e "${CYAN}ðŸš€ Creating ccp launch command...${NC}"
+echo -e "${CYAN}🚀 Creating ccp launch command...${NC}"
 cat << 'EOF' > ccp
 #!/bin/bash
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-node "$DIR/server/src/index.js"
+while true; do
+  node "$DIR/server/src/index.js"
+  EXIT_CODE=$?
+  if [ $EXIT_CODE -eq 42 ]; then
+    echo "🔄 Restarting Claude Code Proxy (CCP) server..."
+  else
+    exit $EXIT_CODE
+  fi
+done
 EOF
 
 chmod +x ccp
-echo -e "${GREEN}âœ” Created ccp launcher script (./ccp)${NC}"
+echo -e "${GREEN}✔ Created ccp launcher script (./ccp)${NC}"
 
-echo -e "\n${GREEN}ðŸŽ‰ CCP installation completed successfully!${NC}"
-echo -e "â–¶ Run ${CYAN}./ccp${NC} to start the proxy server."
+# 6. Global CLI registration (ccp-start)
+echo -e "${CYAN}🔗 Registering global 'ccp-start' command...${NC}"
+if npm link; then
+    echo -e "${GREEN}✔ Registered 'ccp-start' globally. You can now start the proxy from anywhere by typing: ccp-start${NC}"
+else
+    echo -e "${YELLOW}⚠ Failed to register 'ccp-start' globally automatically.${NC}"
+    echo -e "You can run ${CYAN}npm link${NC} manually (with ${CYAN}sudo${NC} if permissions require it) in the project folder to enable it."
+fi
+
+echo -e "\n${GREEN}🎉 CCP installation completed successfully!${NC}"
+echo -e "▶ Run ${CYAN}./ccp${NC} or the global ${CYAN}ccp-start${NC} command to start the proxy server."

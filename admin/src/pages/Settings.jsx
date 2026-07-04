@@ -114,7 +114,7 @@ export default function Settings({ toast }) {
           <div className="card-header">
             <div className="card-title">🤖 Claude Code — Environment Setup</div>
             <button className="btn btn-ghost btn-sm" onClick={() => copyToClipboard(
-              `ANTHROPIC_BASE_URL=http://127.0.0.1:8082\nANTHROPIC_AUTH_TOKEN=${token}\nCLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`,
+              `export ANTHROPIC_BASE_URL=http://127.0.0.1:${settings.port || 8082}\nexport ANTHROPIC_AUTH_TOKEN=${token}\nexport CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`,
               'Claude Code env'
             )}>
               {copied === 'Claude Code env' ? <CheckCircle size={13} /> : <Copy size={13} />} Copy
@@ -122,10 +122,10 @@ export default function Settings({ toast }) {
           </div>
           <div className="card-body">
             <pre className="code-block" style={{ fontSize: 13, lineHeight: 2 }}>
-{`ANTHROPIC_BASE_URL=http://127.0.0.1:8082
-ANTHROPIC_AUTH_TOKEN=${token}
-CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
-CLAUDE_CODE_AUTO_COMPACT_WINDOW=190000`}
+{`export ANTHROPIC_BASE_URL=http://127.0.0.1:${settings.port || 8082}
+export ANTHROPIC_AUTH_TOKEN=${token}
+export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
+export CLAUDE_CODE_AUTO_COMPACT_WINDOW=190000`}
             </pre>
           </div>
         </div>
@@ -135,7 +135,7 @@ CLAUDE_CODE_AUTO_COMPACT_WINDOW=190000`}
           <div className="card-header">
             <div className="card-title">💻 Codex CLI — Environment Setup</div>
             <button className="btn btn-ghost btn-sm" onClick={() => copyToClipboard(
-              `CCP_CODEX_API_KEY=${token}\ncodex -c model_provider="ccp" -c model_providers.ccp.base_url="http://127.0.0.1:8082/v1" -c model_providers.ccp.env_key="CCP_CODEX_API_KEY" -c model_providers.ccp.wire_api="responses"`,
+              `export CCP_CODEX_API_KEY=${token}\ncodex -c model_provider="ccp" -c model_providers.ccp.base_url="http://127.0.0.1:${settings.port || 8082}/v1" -c model_providers.ccp.env_key="CCP_CODEX_API_KEY" -c model_providers.ccp.wire_api="responses"`,
               'Codex CLI env'
             )}>
               {copied === 'Codex CLI env' ? <CheckCircle size={13} /> : <Copy size={13} />} Copy
@@ -143,15 +143,81 @@ CLAUDE_CODE_AUTO_COMPACT_WINDOW=190000`}
           </div>
           <div className="card-body">
             <pre className="code-block" style={{ fontSize: 12, lineHeight: 2 }}>
-{`CCP_CODEX_API_KEY=${token}
+{`export CCP_CODEX_API_KEY=${token}
 
 codex \\
   -c model_provider="ccp" \\
   -c model_providers.ccp.name="Claude Code Proxy" \\
-  -c model_providers.ccp.base_url="http://127.0.0.1:8082/v1" \\
+  -c model_providers.ccp.base_url="http://127.0.0.1:${settings.port || 8082}/v1" \\
   -c model_providers.ccp.env_key="CCP_CODEX_API_KEY" \\
   -c model_providers.ccp.wire_api="responses"`}
             </pre>
+          </div>
+        </div>
+
+        {/* Server Management */}
+        <div className="card" style={{ borderColor: 'rgba(239,68,68,0.25)' }}>
+          <div className="card-header">
+            <div className="card-title"><Server size={15} /> Server Management</div>
+          </div>
+          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="input-group">
+              <label className="input-label">Server Port (requires restart to apply)</label>
+              <input
+                className="input"
+                type="number"
+                value={settings.port || 8082}
+                min={1}
+                max={65535}
+                onChange={e => setSettings(s => ({ ...s, port: parseInt(e.target.value) || 8082 }))}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+              <button 
+                className="btn btn-secondary btn-sm" 
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const s = await api.getSettings();
+                    setSettings(prev => ({ ...prev, ...s }));
+                    toast.success('Settings refreshed from server');
+                  } catch (e) {
+                    toast.error('Failed to refresh: ' + e.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                Refresh Settings
+              </button>
+              
+              <button 
+                className="btn btn-danger btn-sm"
+                onClick={async () => {
+                  if (confirm('Are you sure you want to restart the proxy server?')) {
+                    try {
+                      const data = await api.saveSettings(settings);
+                      toast.info('Restarting server process...');
+                      
+                      // Trigger restart
+                      const res = await fetch('/api/admin/server/restart', { method: 'POST' });
+                      const restData = await res.json();
+                      toast.success(restData.message || 'Server restarting...');
+                      
+                      // Wait 3 seconds then refresh window
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 3000);
+                    } catch (e) {
+                      toast.error('Failed to initiate restart: ' + e.message);
+                    }
+                  }
+                }}
+              >
+                Restart Server
+              </button>
+            </div>
           </div>
         </div>
 

@@ -125,6 +125,13 @@ router.put('/settings', async (req, res) => {
   res.json({ success: true });
 });
 
+router.post('/server/restart', (_req, res) => {
+  res.json({ success: true, message: 'Server is restarting...' });
+  setTimeout(() => {
+    process.exit(42);
+  }, 1000);
+});
+
 // ─── Playground ───────────────────────────────────────────────────────────────
 router.post('/playground', async (req, res) => {
   const { provider_id, model_id, messages, system, max_tokens, temperature, stream } = req.body;

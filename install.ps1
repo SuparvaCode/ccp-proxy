@@ -63,11 +63,25 @@ npm run build:admin
 Write-Host "🚀 Creating ccp launch command..." -ForegroundColor Cyan
 $ccpCmd = @"
 @echo off
+:loop
 node "%~dp0server\src\index.js"
+if %errorlevel% equ 42 (
+  echo 🔄 Restarting Claude Code Proxy (CCP) server...
+  goto loop
+)
 "@
 
 Set-Content -Path "ccp.cmd" -Value $ccpCmd
 Write-Host "✔ Created ccp launcher script (./ccp.cmd)" -ForegroundColor Green
 
+# 6. Global CLI registration (ccp-start)
+Write-Host "🔗 Registering global 'ccp-start' command..." -ForegroundColor Cyan
+try {
+    npm link
+    Write-Host "✔ Registered 'ccp-start' globally. You can now start the proxy from anywhere by typing: ccp-start" -ForegroundColor Green
+} catch {
+    Write-Host "⚠ Failed to register 'ccp-start' globally automatically. You can run 'npm link' manually in the project folder to enable it." -ForegroundColor Yellow
+}
+
 Write-Host "`n🎉 CCP installation completed successfully!" -ForegroundColor Green
-Write-Host "▶ Run './ccp.cmd' to start the proxy server." -ForegroundColor Green
+Write-Host "▶ Run './ccp.cmd' or the global 'ccp-start' command to start the proxy server." -ForegroundColor Green

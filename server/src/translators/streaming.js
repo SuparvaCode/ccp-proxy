@@ -236,3 +236,128 @@ function mapFinishReason(r) {
   if (r === 'tool_calls') return 'tool_use';
   return 'end_turn';
 }
+
+export async function streamBedrockToAnthropic(res, bedrockStream, model, requestId, onComplete) {
+  const msgId = requestId || `msg_${crypto.randomUUID().slice(0, 24)}`;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let blockIndex = 0;
+  let textBlockStarted = false;
+  let toolBlocks = {}; // index -> toolId
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  function send(event, data) {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  }
+
+  // message_start
+  send('message_start', {
+    type: 'message_start',
+    message: {
+      id: msgId, type: 'message', role: 'assistant', model,
+      content: [], stop_reason: null, stop_sequence: null,
+      usage: { input_tokens: 0, output_tokens: 0 },
+    },
+  });
+
+  send('ping', { type: 'ping' });
+
+  try {
+    for await (const chunk of bedrockStream) {
+      // 1. contentBlockStart
+      if (chunk.contentBlockStart) {
+        const idx = chunk.contentBlockStart.contentBlockIndex ?? 0;
+        const start = chunk.contentBlockStart.start || {};
+        if (start.toolUse) {
+          if (textBlockStarted) {
+            send('content_block_stop', { type: 'content_block_stop', index: blockIndex });
+            blockIndex++;
+            textBlockStarted = false;
+          }
+          const tUse = start.toolUse;
+          toolBlocks[idx] = { index: blockIndex, id: tUse.toolUseId, name: tUse.name };
+          send('content_block_start', {
+            type: 'content_block_start',
+            index: blockIndex,
+            content_block: { type: 'tool_use', id: tUse.toolUseId, name: tUse.name, input: {} },
+          });
+          blockIndex++;
+        }
+      }
+
+      // 2. contentBlockDelta
+      if (chunk.contentBlockDelta) {
+        const idx = chunk.contentBlockDelta.contentBlockIndex ?? 0;
+        const delta = chunk.contentBlockDelta.delta || {};
+        if (delta.text) {
+          if (!textBlockStarted) {
+            send('content_block_start', {
+              type: 'content_block_start',
+              index: blockIndex,
+              content_block: { type: 'text', text: '' },
+            });
+            textBlockStarted = true;
+          }
+          send('content_block_delta', {
+            type: 'content_block_delta',
+            index: blockIndex,
+            delta: { type: 'text_delta', text: delta.text },
+          });
+          outputTokens++;
+        } else if (delta.toolUse) {
+          const tBlock = toolBlocks[idx];
+          if (tBlock && delta.toolUse.input) {
+            send('content_block_delta', {
+              type: 'content_block_delta',
+              index: tBlock.index,
+              delta: { type: 'input_json_delta', partial_json: delta.toolUse.input },
+            });
+          }
+        }
+      }
+
+      // 3. contentBlockStop
+      if (chunk.contentBlockStop) {
+        const idx = chunk.contentBlockStop.contentBlockIndex ?? 0;
+        const tBlock = toolBlocks[idx];
+        if (tBlock) {
+          send('content_block_stop', { type: 'content_block_stop', index: tBlock.index });
+        }
+      }
+
+      // 4. messageStop
+      if (chunk.messageStop) {
+        if (textBlockStarted) {
+          send('content_block_stop', { type: 'content_block_stop', index: blockIndex });
+        }
+        let stopReason = 'end_turn';
+        if (chunk.messageStop.stopReason === 'tool_use') stopReason = 'tool_use';
+        else if (chunk.messageStop.stopReason === 'max_tokens') stopReason = 'max_tokens';
+        else if (chunk.messageStop.stopReason === 'stop_sequence') stopReason = 'stop_sequence';
+
+        send('message_delta', {
+          type: 'message_delta',
+          delta: { stop_reason: stopReason, stop_sequence: null },
+          usage: { output_tokens: outputTokens },
+        });
+        send('message_stop', { type: 'message_stop' });
+      }
+
+      // 5. metadata (token usage)
+      if (chunk.metadata) {
+        if (chunk.metadata.usage) {
+          inputTokens = chunk.metadata.usage.inputTokens || inputTokens;
+          outputTokens = chunk.metadata.usage.outputTokens || outputTokens;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Bedrock Stream]', err.message);
+  } finally {
+    res.end();
+    onComplete?.({ inputTokens, outputTokens });
+  }
+}

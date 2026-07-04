@@ -13,7 +13,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initDb } from './db/store.js';
+import { initDb, getSettings, getAuthToken } from './db/store.js';
 import { authMiddleware } from './middleware/auth.js';
 import { requestLogger } from './middleware/logger.js';
 import anthropicRouter from './routes/anthropic.js';
@@ -21,7 +21,6 @@ import openaiRouter from './routes/openai.js';
 import adminRouter from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = parseInt(process.env.PORT || '8082', 10);
 const HOST = process.env.HOST || '127.0.0.1';
 
 const allowedOrigins = (process.env.ADMIN_CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
@@ -74,7 +73,11 @@ app.use((err, _req, res, _next) => {
 });
 
 // Init DB then start server
-initDb().then(() => {
+initDb().then(async () => {
+  const settings = await getSettings();
+  const dbPort = settings.port ? parseInt(settings.port, 10) : 8082;
+  const PORT = parseInt(process.env.PORT || dbPort, 10);
+
   app.listen(PORT, HOST, () => {
     console.log(`\n⚡ CCP Proxy running at http://${HOST}:${PORT}`);
     console.log(`📋 Admin panel:      http://${HOST}:${PORT}/admin`);
@@ -82,7 +85,7 @@ initDb().then(() => {
     console.log(`🤖 OpenAI API:       http://${HOST}:${PORT}/v1/responses`);
     console.log(`\n   Set in your client env:`);
     console.log(`   ANTHROPIC_BASE_URL=http://${HOST}:${PORT}`);
-    console.log(`   ANTHROPIC_AUTH_TOKEN=${process.env.CCP_AUTH_TOKEN || 'super'}\n`);
+    console.log(`   ANTHROPIC_AUTH_TOKEN=${getAuthToken()}\n`);
   });
 }).catch(err => {
   console.error('[CCP] Failed to initialize DB:', err);

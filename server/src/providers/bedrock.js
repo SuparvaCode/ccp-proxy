@@ -1,0 +1,218 @@
+// ═══════════════════════════════════════════════════════════════
+//   ██████╗ ██████╗██████╗ 
+//  ██╔════╝██╔════╝██╔══██╗   Claude Code Proxy (CCP)
+//  ██║     ██║     ██████╔╝   Powered by SuparvaCodes
+//  ██║     ██║     ██╔═══╝ 
+//  ╚██████╗╚██████╗██║        Copyright (c) 2026 Suparva
+//   ╚═════╝ ╚═════╝╚═╝ 
+// ═══════════════════════════════════════════════════════════════
+
+import { BaseProvider } from './base.js';
+import { OpenAICompatProvider } from './openaicompat.js';
+import { BedrockRuntimeClient, ConverseCommand, ConverseStreamCommand } from '@aws-sdk/client-bedrock-runtime';
+import { streamBedrockToAnthropic } from '../translators/streaming.js';
+import crypto from 'crypto';
+
+export class BedrockProvider extends BaseProvider {
+  constructor(config) {
+    super(config);
+    // Determine if we should use OpenAI compatibility layer or native AWS SDK
+    this.useOpenAICompat = !!this.extraConfig.use_openai_compat;
+    if (this.useOpenAICompat) {
+      this.openAICompat = new OpenAICompatProvider(config);
+    } else {
+      const clientConfig = {
+        region: this.extraConfig.aws_region || 'us-east-1',
+      };
+      const secretKey = this.apiKey || this.extraConfig.aws_secret_access_key;
+      if (this.extraConfig.aws_access_key_id && secretKey) {
+        clientConfig.credentials = {
+          accessKeyId: this.extraConfig.aws_access_key_id,
+          secretAccessKey: secretKey,
+          sessionToken: this.extraConfig.aws_session_token || undefined,
+        };
+      }
+      this.client = new BedrockRuntimeClient(clientConfig);
+    }
+  }
+
+  async listModels() {
+    if (this.useOpenAICompat) {
+      return this.openAICompat.listModels();
+    }
+    // Static list of popular Bedrock models since Bedrock list-models is administrative
+    return [
+      { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', name: 'Claude 3.5 Sonnet v2', capabilities: ['chat'] },
+      { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0', name: 'Claude 3.5 Sonnet v1', capabilities: ['chat'] },
+      { id: 'anthropic.claude-3-5-haiku-20241022-v1:0', name: 'Claude 3.5 Haiku', capabilities: ['chat'] },
+      { id: 'anthropic.claude-3-opus-20240229-v1:0', name: 'Claude 3 Opus', capabilities: ['chat'] },
+      { id: 'anthropic.claude-3-sonnet-20240229-v1:0', name: 'Claude 3 Sonnet', capabilities: ['chat'] },
+      { id: 'anthropic.claude-3-haiku-20240307-v1:0', name: 'Claude 3 Haiku', capabilities: ['chat'] },
+      { id: 'meta.llama3-1-405b-instruct-v1:0', name: 'Llama 3.1 405B Instruct', capabilities: ['chat'] },
+      { id: 'meta.llama3-1-70b-instruct-v1:0', name: 'Llama 3.1 70B Instruct', capabilities: ['chat'] },
+      { id: 'meta.llama3-1-8b-instruct-v1:0', name: 'Llama 3.1 8B Instruct', capabilities: ['chat'] },
+      { id: 'meta.llama3-2-3b-instruct-v1:0', name: 'Llama 3.2 3B Instruct', capabilities: ['chat'] },
+      { id: 'meta.llama3-2-1b-instruct-v1:0', name: 'Llama 3.2 1B Instruct', capabilities: ['chat'] },
+      { id: 'cohere.command-r-plus-v1:0', name: 'Command R+', capabilities: ['chat'] },
+      { id: 'cohere.command-r-v1:0', name: 'Command R', capabilities: ['chat'] },
+      { id: 'mistral.mistral-large-2407-v1:0', name: 'Mistral Large 2', capabilities: ['chat'] },
+      { id: 'amazon.nova-pro-v1:0', name: 'Amazon Nova Pro', capabilities: ['chat'] },
+      { id: 'amazon.nova-lite-v1:0', name: 'Amazon Nova Lite', capabilities: ['chat'] },
+      { id: 'amazon.nova-micro-v1:0', name: 'Amazon Nova Micro', capabilities: ['chat'] },
+    ];
+  }
+
+  async complete(anthropicBody) {
+    if (this.useOpenAICompat) {
+      return this.openAICompat.complete(anthropicBody);
+    }
+    const modelId = anthropicBody._resolvedModel;
+    const input = this.translateToBedrock(anthropicBody, modelId);
+    const command = new ConverseCommand(input);
+    const response = await this.client.send(command);
+    return this.translateFromBedrock(response, modelId, anthropicBody._requestId);
+  }
+
+  async completeStream(anthropicBody, res, requestId, onComplete) {
+    if (this.useOpenAICompat) {
+      return this.openAICompat.completeStream(anthropicBody, res, requestId, onComplete);
+    }
+    const modelId = anthropicBody._resolvedModel;
+    const input = this.translateToBedrock(anthropicBody, modelId);
+    const command = new ConverseStreamCommand(input);
+    const response = await this.client.send(command);
+    await streamBedrockToAnthropic(res, response.stream, modelId, requestId, onComplete);
+  }
+
+  translateToBedrock(anthropicBody, modelId) {
+    const { messages, system, max_tokens, temperature, top_p, stop_sequences, tools } = anthropicBody;
+
+    const bedrockMessages = [];
+    for (const msg of (messages || [])) {
+      const role = msg.role;
+      const content = [];
+
+      if (typeof msg.content === 'string') {
+        content.push({ text: msg.content });
+      } else if (Array.isArray(msg.content)) {
+        for (const block of msg.content) {
+          if (block.type === 'text') {
+            content.push({ text: block.text });
+          } else if (block.type === 'image') {
+            const mime = block.source?.media_type || '';
+            let format = 'jpeg';
+            if (mime.includes('png')) format = 'png';
+            else if (mime.includes('gif')) format = 'gif';
+            else if (mime.includes('webp')) format = 'webp';
+
+            content.push({
+              image: {
+                format,
+                source: {
+                  bytes: Buffer.from(block.source.data, 'base64'),
+                },
+              },
+            });
+          } else if (block.type === 'tool_use') {
+            content.push({
+              toolUse: {
+                toolUseId: block.id,
+                name: block.name,
+                input: block.input || {},
+              },
+            });
+          } else if (block.type === 'tool_result') {
+            const isError = block.is_error;
+            const textContent = Array.isArray(block.content)
+              ? block.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
+              : (typeof block.content === 'string' ? block.content : '');
+
+            content.push({
+              toolResult: {
+                toolUseId: block.tool_use_id,
+                content: [{ text: textContent || 'Success' }],
+                status: isError ? 'error' : 'ok',
+              },
+            });
+          }
+        }
+      }
+
+      bedrockMessages.push({ role, content });
+    }
+
+    const input = {
+      modelId,
+      messages: bedrockMessages,
+    };
+
+    if (system) {
+      const sysText = Array.isArray(system)
+        ? system.map(b => (typeof b === 'string' ? b : b.text || '')).join('\n')
+        : system;
+      input.system = [{ text: sysText }];
+    }
+
+    const infConfig = {};
+    if (max_tokens) infConfig.maxTokens = max_tokens;
+    if (temperature !== undefined) infConfig.temperature = temperature;
+    if (top_p !== undefined) infConfig.topP = top_p;
+    if (stop_sequences && stop_sequences.length) infConfig.stopSequences = stop_sequences;
+    if (Object.keys(infConfig).length > 0) {
+      input.inferenceConfiguration = infConfig;
+    }
+
+    if (tools && tools.length) {
+      input.toolConfig = {
+        tools: tools.map(t => ({
+          toolSpec: {
+            name: t.name,
+            description: t.description || '',
+            inputSchema: {
+              json: t.input_schema || { type: 'object', properties: {} },
+            },
+          },
+        })),
+      };
+    }
+
+    return input;
+  }
+
+  translateFromBedrock(response, model, requestId) {
+    const content = [];
+    const bedrockContent = response.output?.message?.content || [];
+
+    for (const block of bedrockContent) {
+      if (block.text) {
+        content.push({ type: 'text', text: block.text });
+      } else if (block.toolUse) {
+        content.push({
+          type: 'tool_use',
+          id: block.toolUse.toolUseId,
+          name: block.toolUse.name,
+          input: block.toolUse.input,
+        });
+      }
+    }
+
+    let stopReason = 'end_turn';
+    if (response.stopReason === 'tool_use') stopReason = 'tool_use';
+    else if (response.stopReason === 'max_tokens') stopReason = 'max_tokens';
+    else if (response.stopReason === 'stop_sequence') stopReason = 'stop_sequence';
+
+    return {
+      id: requestId || `msg_${crypto.randomUUID().slice(0, 24)}`,
+      type: 'message',
+      role: 'assistant',
+      model,
+      content,
+      stop_reason: stopReason,
+      stop_sequence: null,
+      usage: {
+        input_tokens: response.usage?.inputTokens || 0,
+        output_tokens: response.usage?.outputTokens || 0,
+      },
+    };
+  }
+}

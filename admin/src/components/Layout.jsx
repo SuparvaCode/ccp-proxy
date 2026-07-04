@@ -39,7 +39,7 @@ export default function Layout({ children, theme, toggleTheme }) {
           backdropFilter: 'blur(12px)',
         }}>
           <code style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)' }}>
-            ANTHROPIC_BASE_URL=http://127.0.0.1:8082
+            {`ANTHROPIC_BASE_URL=http://127.0.0.1:${window.location.port || '8082'}`}
           </code>
           <ThemeToggle theme={theme} toggle={toggleTheme} />
         </div>

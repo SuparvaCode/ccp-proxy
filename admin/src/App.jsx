@@ -16,7 +16,7 @@ export default function App() {
   const { toasts, toast, removeToast } = useToast();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/admin">
       <Layout theme={theme} toggleTheme={toggle} toast={toast}>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

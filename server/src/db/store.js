@@ -92,6 +92,7 @@ export async function initDb() {
     INSERT OR IGNORE INTO settings (key, value) VALUES ('auth_token', '"super"');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('log_level', '"info"');
     INSERT OR IGNORE INTO settings (key, value) VALUES ('max_log_entries', '10000');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('port', '8082');
   `);
 
   // Prime the in-memory auth token from DB
@@ -417,6 +418,7 @@ async function seedProviders() {
     { id: 'ollama', name: 'Ollama', type: 'local', base_url: 'http://localhost:11434' },
     { id: 'lmstudio', name: 'LM Studio', type: 'local', base_url: 'http://localhost:1234' },
     { id: 'llamacpp', name: 'llama.cpp', type: 'local', base_url: 'http://localhost:8080' },
+    { id: 'bedrock', name: 'Amazon Bedrock', type: 'cloud', base_url: '' },
   ];
   for (const p of PROVIDERS) {
     await db.execute({
