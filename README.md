@@ -59,11 +59,16 @@ npm run build:admin
 ## Usage
 
 ### Start the Proxy Server
-Once installed, execute the launch command in the project root:
+Once installed, you can start the proxy server globally from any directory:
+```bash
+ccp-start
+```
+
+Or execute the launchers in the project root:
 - Windows: `.\ccp.cmd`
 - macOS/Linux: `./ccp`
 
-Open **http://localhost:5173** (development) or **http://127.0.0.1:8082/admin** (production) to manage providers and route models.
+Open **http://127.0.0.1:8082/admin** to manage providers, configure routing, and view stats.
 
 ### 🗑️ Uninstalling
 To completely clean up and remove the application:
