@@ -90,6 +90,20 @@ npm run build:admin
 npm link   # registers the global ccp-start command
 ```
 
+### 🗑️ Uninstalling
+
+To completely remove the proxy, files, PATH updates, and global commands:
+
+#### Windows (PowerShell)
+```powershell
+irm -useb https://raw.githubusercontent.com/SuparvaCode/ccp-proxy/main/uninstall.ps1 | iex
+```
+
+#### macOS / Linux (Bash)
+```bash
+curl -fsSL https://raw.githubusercontent.com/SuparvaCode/ccp-proxy/main/uninstall.sh | bash
+```
+
 ---
 
 ## Starting the server
