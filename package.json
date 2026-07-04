@@ -7,10 +7,10 @@
     "ccp-start": "./bin/ccp-start.js"
   },
   "scripts": {
-    "install:all": "cd server && npm install && cd ../admin && npm install",
-    "dev:server": "cd server && npm run dev",
-    "dev:admin": "cd admin && npm run dev",
-    "build:admin": "cd admin && npm run build",
-    "start": "cd server && node src/index.js"
+    "install:all": "npm --prefix server install && npm --prefix admin install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:admin": "npm --prefix admin run dev",
+    "build:admin": "npm --prefix admin run build",
+    "start": "node server/src/index.js"
   }
 }

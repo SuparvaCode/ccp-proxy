@@ -62,15 +62,21 @@ You point your client at `http://127.0.0.1:8082` instead of Anthropic's servers,
 
 ### 🪟 Windows (PowerShell)
 
+Open PowerShell and run:
+
 ```powershell
 irm -useb https://raw.githubusercontent.com/SuparvaCode/ccp-proxy/main/install.ps1 | iex
 ```
+
+> The window will stay open throughout the install. Everything is automatic — the installer clones the repo, installs deps, builds the UI, and registers `ccp-start`. Installs to `%USERPROFILE%\.ccp-proxy`.
 
 ### 🍎 macOS / 🐧 Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/SuparvaCode/ccp-proxy/main/install.sh | bash
 ```
+
+> Installs to `~/.ccp-proxy` and registers `ccp-start` in `~/.local/bin`. Open a new terminal after install (or run `source ~/.bashrc`) for `ccp-start` to be available.
 
 ### Manual (all platforms)
 
@@ -81,14 +87,8 @@ npm run install:all
 cp server/.env.example server/.env
 # Edit server/.env — set CCP_ENCRYPTION_SECRET (min 32 chars) and optionally CCP_AUTH_TOKEN
 npm run build:admin
+npm link   # registers the global ccp-start command
 ```
-
-The installers:
-1. Check for Node.js (and offer to install it via `winget` on Windows)
-2. Install all dependencies (`npm run install:all`)
-3. Generate `server/.env` with a random 32-char encryption key
-4. Build the admin panel (`npm run build:admin`)
-5. Register the global `ccp-start` command via `npm link`
 
 ---
 

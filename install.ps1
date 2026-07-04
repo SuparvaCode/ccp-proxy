@@ -1,98 +1,230 @@
 # ═══════════════════════════════════════════════════════════════
 #   ██████╗ ██████╗██████╗ 
 #  ██╔════╝██╔════╝██╔══██╗   Claude Code Proxy (CCP)
-#  ██║     ██║     ██████╔╝   Powered by SuparvaCodes
+#  ██║     ██║     ██████╔╝   Powered by SuparvaCode
 #  ██║     ██║     ██╔═══╝ 
 #  ╚██████╗╚██████╗██║        Copyright (c) 2026 Suparva
 #   ╚═════╝ ╚═════╝╚═╝ 
 # ═══════════════════════════════════════════════════════════════
 
-$ErrorActionPreference = "Stop"
+# Keep window open no matter what
+$ErrorActionPreference = "Continue"
 
-Write-Host "`n⚡ Installing Claude Code Proxy (CCP)..." -ForegroundColor Magenta
+function Pause-Exit($code) {
+    Write-Host ""
+    Write-Host "Press any key to close..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit $code
+}
 
-# Resolve install directory (works both from file and irm|iex)
-$InstallDir = if ($PSScriptRoot -and (Test-Path $PSScriptRoot)) { $PSScriptRoot } else { (Get-Location).Path }
-Write-Host "📁 Install directory: $InstallDir" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  ██████╗ ██████╗██████╗ " -ForegroundColor Magenta
+Write-Host " ██╔════╝██╔════╝██╔══██╗  Claude Code Proxy" -ForegroundColor Magenta
+Write-Host " ██║     ██║     ██████╔╝  by SuparvaCode" -ForegroundColor Magenta
+Write-Host " ╚██████╗╚██████╗██║" -ForegroundColor Magenta
+Write-Host "  ╚═════╝ ╚═════╝╚═╝" -ForegroundColor Magenta
+Write-Host ""
+Write-Host "⚡ CCP Installer" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
 
-# 1. Check Node.js
+# ── Install location ───────────────────────────────────────────────────────────
+$InstallDir = "$env:USERPROFILE\.ccp-proxy"
+Write-Host "📁 Install location: $InstallDir" -ForegroundColor Cyan
+
+# ── Step 1: Check Node.js ──────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "[ 1/5 ] Checking Node.js..." -ForegroundColor White
+
+$nodeOk = $false
 try {
-    $nodeVersion = node -v 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "node not found" }
-    Write-Host "✔ Node.js found: $nodeVersion" -ForegroundColor Green
-} catch {
-    Write-Host "⚠  Node.js is not installed." -ForegroundColor Yellow
-    Write-Host "Attempting to install Node.js via winget..." -ForegroundColor Cyan
+    $nodePath = (Get-Command node -ErrorAction SilentlyContinue)
+    if ($nodePath) {
+        $nodeVersion = & node -v 2>&1
+        Write-Host "        ✔ Node.js $nodeVersion found" -ForegroundColor Green
+        $nodeOk = $true
+    }
+} catch {}
+
+if (-not $nodeOk) {
+    Write-Host "        ✘ Node.js not found." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  Please install Node.js v18+ from: https://nodejs.org/" -ForegroundColor Yellow
+    Write-Host "  After installing, restart this terminal and run the command again." -ForegroundColor Yellow
+    Pause-Exit 1
+}
+
+# ── Step 2: Check / install Git ────────────────────────────────────────────────
+Write-Host ""
+Write-Host "[ 2/5 ] Checking Git..." -ForegroundColor White
+
+$gitOk = $false
+try {
+    $gitPath = (Get-Command git -ErrorAction SilentlyContinue)
+    if ($gitPath) {
+        $gitVersion = & git --version 2>&1
+        Write-Host "        ✔ $gitVersion" -ForegroundColor Green
+        $gitOk = $true
+    }
+} catch {}
+
+if (-not $gitOk) {
+    Write-Host "        Git not found — attempting install via winget..." -ForegroundColor Yellow
     try {
-        winget install --id OpenJS.NodeJS -e --silent
-        Write-Host "✔ Node.js installed. Please restart your terminal and re-run this installer." -ForegroundColor Green
-        Exit 0
+        & winget install --id Git.Git -e --silent 2>&1 | Out-Null
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        $gitVersion = & git --version 2>&1
+        Write-Host "        ✔ Git installed: $gitVersion" -ForegroundColor Green
+        $gitOk = $true
     } catch {
-        Write-Host "❌ Failed to install Node.js automatically." -ForegroundColor Red
-        Write-Host "   Please install it manually from https://nodejs.org/ then re-run." -ForegroundColor Red
-        Exit 1
+        Write-Host "        ✘ Could not install Git automatically." -ForegroundColor Red
+        Write-Host "          Install Git from https://git-scm.com/ and re-run." -ForegroundColor Yellow
+        Pause-Exit 1
     }
 }
 
-# 2. Install Project Dependencies
-Write-Host "`n📦 Installing dependencies (server & admin)..." -ForegroundColor Cyan
-Push-Location $InstallDir
-npm run install:all
-if ($LASTEXITCODE -ne 0) { Write-Host "❌ Dependency install failed." -ForegroundColor Red; Pop-Location; Exit 1 }
-Pop-Location
+# ── Step 3: Clone or update repo ───────────────────────────────────────────────
+Write-Host ""
+Write-Host "[ 3/5 ] Fetching CCP source..." -ForegroundColor White
 
-# 3. Create .env Configuration
+$repoUrl = "https://github.com/SuparvaCode/ccp-proxy.git"
+
+if (Test-Path (Join-Path $InstallDir ".git")) {
+    Write-Host "        Found existing install — pulling latest updates..." -ForegroundColor Cyan
+    Push-Location $InstallDir
+    & git pull --ff-only 2>&1 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+    Pop-Location
+    Write-Host "        ✔ Updated to latest version" -ForegroundColor Green
+} else {
+    if (Test-Path $InstallDir) {
+        Remove-Item $InstallDir -Recurse -Force
+    }
+    Write-Host "        Cloning from GitHub..." -ForegroundColor Cyan
+    & git clone $repoUrl $InstallDir 2>&1 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "        ✘ Git clone failed. Check your internet connection." -ForegroundColor Red
+        Pause-Exit 1
+    }
+    Write-Host "        ✔ Downloaded to $InstallDir" -ForegroundColor Green
+}
+
+# ── Step 4: Install dependencies + build ──────────────────────────────────────
+Write-Host ""
+Write-Host "[ 4/5 ] Installing dependencies & building..." -ForegroundColor White
+
+Push-Location $InstallDir
+
+# Install server deps
+Write-Host "        Installing server dependencies..." -ForegroundColor Cyan
+Push-Location (Join-Path $InstallDir "server")
+& npm install --silent 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "        ✘ Server npm install failed." -ForegroundColor Red
+    Pop-Location; Pop-Location; Pause-Exit 1
+}
+Pop-Location
+Write-Host "        ✔ Server dependencies installed" -ForegroundColor Green
+
+# Install admin deps
+Write-Host "        Installing admin dependencies..." -ForegroundColor Cyan
+Push-Location (Join-Path $InstallDir "admin")
+& npm install --silent 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "        ✘ Admin npm install failed." -ForegroundColor Red
+    Pop-Location; Pop-Location; Pause-Exit 1
+}
+Pop-Location
+Write-Host "        ✔ Admin dependencies installed" -ForegroundColor Green
+
+# Create .env if missing
 $envFile = Join-Path $InstallDir "server\.env"
 $envExample = Join-Path $InstallDir "server\.env.example"
-
 if (-not (Test-Path $envFile)) {
-    Write-Host "`n⚙  Generating secure environment configuration..." -ForegroundColor Cyan
+    Write-Host "        Generating secure .env..." -ForegroundColor Cyan
     Copy-Item $envExample -Destination $envFile
-
-    # Generate a random 32-character encryption key
     $bytes = New-Object Byte[] 32
     [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-    $encryptionKey = [System.Convert]::ToBase64String($bytes) -replace '[+/=]','' | Select-Object -First 1
-    $encryptionKey = $encryptionKey.Substring(0, [Math]::Min(32, $encryptionKey.Length))
-
+    $key = [System.Convert]::ToBase64String($bytes) -replace '[^A-Za-z0-9]',''
+    $key = $key.Substring(0, [Math]::Min(32, $key.Length))
     $content = Get-Content $envFile -Raw
-    $content = $content -replace 'CCP_ENCRYPTION_SECRET=change_this_to_a_long_random_secret_value_32chars', "CCP_ENCRYPTION_SECRET=$encryptionKey"
+    $content = $content -replace 'CCP_ENCRYPTION_SECRET=change_this_to_a_long_random_secret_value_32chars', "CCP_ENCRYPTION_SECRET=$key"
     Set-Content -Path $envFile -Value $content -NoNewline
-    Write-Host "✔ Created server/.env with a secure random encryption key." -ForegroundColor Green
+    Write-Host "        ✔ Created server/.env with secure encryption key" -ForegroundColor Green
 } else {
-    Write-Host "✔ Existing server/.env found — keeping your configuration." -ForegroundColor Green
+    Write-Host "        ✔ Existing server/.env kept" -ForegroundColor Green
 }
 
-# 4. Build Production Frontend
-Write-Host "`n🏗  Building production frontend assets..." -ForegroundColor Cyan
-Push-Location $InstallDir
-npm run build:admin
-if ($LASTEXITCODE -ne 0) { Write-Host "❌ Frontend build failed." -ForegroundColor Red; Pop-Location; Exit 1 }
+# Build admin UI
+Write-Host "        Building admin UI..." -ForegroundColor Cyan
+Push-Location (Join-Path $InstallDir "admin")
+& npm run build 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "        ✘ Admin build failed." -ForegroundColor Red
+    Pop-Location; Pop-Location; Pause-Exit 1
+}
+Pop-Location
+Write-Host "        ✔ Admin UI built" -ForegroundColor Green
+
 Pop-Location
 
-# 5. Create ccp.cmd launcher (Windows batch restart-loop)
-Write-Host "`n🚀 Creating ccp.cmd launch command..." -ForegroundColor Cyan
-$ccpCmdPath = Join-Path $InstallDir "ccp.cmd"
-$ccpCmd = "@echo off`r`nsetlocal`r`nset CCP_DIR=$InstallDir`r`n:loop`r`nnode ""%CCP_DIR%\server\src\index.js""`r`nif %errorlevel% equ 42 (`r`n  echo Restarting CCP server...`r`n  goto loop`r`n)`r`n"
-Set-Content -Path $ccpCmdPath -Value $ccpCmd
-Write-Host "✔ Created $ccpCmdPath" -ForegroundColor Green
+# ── Step 5: Register ccp-start globally ───────────────────────────────────────
+Write-Host ""
+Write-Host "[ 5/5 ] Registering 'ccp-start' command..." -ForegroundColor White
 
-# 6. Global CLI registration (ccp-start)
-Write-Host "`n🔗 Registering global 'ccp-start' command..." -ForegroundColor Cyan
-Push-Location $InstallDir
+# Write a robust ccp-start.cmd into npm global prefix so it always works
+$npmGlobalPrefix = & npm prefix -g 2>&1
+$ccpStartCmd = Join-Path $npmGlobalPrefix "ccp-start.cmd"
+$serverEntry = Join-Path $InstallDir "server\src\index.js"
+
+$cmdContent = @"
+@echo off
+setlocal
+set CCP_DIR=$InstallDir
+:loop
+node "%CCP_DIR%\server\src\index.js"
+if %errorlevel% equ 42 (
+    echo.
+    echo Restarting CCP server...
+    timeout /t 1 /nobreak >nul
+    goto loop
+)
+endlocal
+"@
+
 try {
-    npm link 2>&1 | Out-Null
-    Write-Host "✔ Global 'ccp-start' command registered." -ForegroundColor Green
-    Write-Host "  You can now start the proxy from anywhere by typing: ccp-start" -ForegroundColor Green
+    Set-Content -Path $ccpStartCmd -Value $cmdContent -Encoding ASCII
+    Write-Host "        ✔ 'ccp-start' registered at: $ccpStartCmd" -ForegroundColor Green
 } catch {
-    Write-Host "⚠  Could not register 'ccp-start' globally (try running as Administrator)." -ForegroundColor Yellow
-    Write-Host "  Manually run: npm link   inside $InstallDir" -ForegroundColor Yellow
+    Write-Host "        ⚠  Could not write to $ccpStartCmd" -ForegroundColor Yellow
+    Write-Host "           Try running PowerShell as Administrator." -ForegroundColor Yellow
 }
+
+# Also try npm link as a fallback
+Push-Location $InstallDir
+& npm link 2>&1 | Out-Null
 Pop-Location
 
-Write-Host "`n🎉 CCP installation complete!" -ForegroundColor Green
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
-Write-Host " ▶ Start server:   ccp-start" -ForegroundColor Cyan
-Write-Host "                   OR: .\ccp.cmd" -ForegroundColor Cyan
-Write-Host " 🌐 Admin panel:   http://127.0.0.1:8082/admin" -ForegroundColor Cyan
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+# Also add a fallback ccp.cmd in the install dir
+$localCmd = Join-Path $InstallDir "ccp.cmd"
+Set-Content -Path $localCmd -Value $cmdContent -Encoding ASCII
+
+# ── Done ───────────────────────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+Write-Host " 🎉 CCP installed successfully!" -ForegroundColor Green
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host " ▶  Start server:" -ForegroundColor White
+Write-Host "      ccp-start" -ForegroundColor Cyan
+Write-Host "    or:  node `"$InstallDir\server\src\index.js`"" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host " 🌐 Admin panel:  http://127.0.0.1:8082/admin" -ForegroundColor White
+Write-Host ""
+Write-Host " ⚙  Set in Claude Code:" -ForegroundColor White
+Write-Host "      `$env:ANTHROPIC_BASE_URL = 'http://127.0.0.1:8082'" -ForegroundColor DarkGray
+Write-Host "      `$env:ANTHROPIC_AUTH_TOKEN = 'super'" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host " 📁 Installed to: $InstallDir" -ForegroundColor DarkGray
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "Press any key to close..." -ForegroundColor DarkGray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
