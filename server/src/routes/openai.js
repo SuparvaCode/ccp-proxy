@@ -8,6 +8,7 @@ import { getSettings } from '../db/store.js';
 import { toOpenAI } from '../translators/toProvider.js';
 import { fromOpenAI } from '../translators/fromProvider.js';
 import { streamOpenAIToAnthropic } from '../translators/streaming.js';
+import { estimateInputTokens } from '../utils/tokenEstimator.js';
 
 const router = Router();
 
@@ -70,9 +71,12 @@ router.post('/responses', async (req, res) => {
   const provider = await getProvider(resolved.provider_id);
   anthropicBody._resolvedModel = resolved.model_id;
 
+  const estimatedInputTokens = estimateInputTokens(anthropicBody);
+
   const onComplete = ({ inputTokens = 0, outputTokens = 0 } = {}) => {
-    recordUsage(resolved.provider_id, { inputTokens, outputTokens });
-    finalizeLog(req, { provider_id: resolved.provider_id, model_id: resolved.model_id, endpoint: 'responses', input_tokens: inputTokens, output_tokens: outputTokens, status: 200 });
+    const finalInput = inputTokens > 0 ? inputTokens : estimatedInputTokens;
+    recordUsage(resolved.provider_id, { inputTokens: finalInput, outputTokens });
+    finalizeLog(req, { provider_id: resolved.provider_id, model_id: resolved.model_id, endpoint: 'responses', input_tokens: finalInput, output_tokens: outputTokens, status: 200 });
   };
 
   try {

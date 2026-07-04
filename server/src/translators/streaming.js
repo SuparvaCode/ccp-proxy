@@ -79,6 +79,7 @@ export async function streamOpenAIToAnthropic(res, nodeStream, model, requestId,
             index: blockIndex,
             delta: { type: 'thinking_delta', thinking: d.reasoning_content },
           });
+          outputTokens += Math.max(1, Math.ceil(d.reasoning_content.length / 4));
         }
 
         // Text content
@@ -101,7 +102,7 @@ export async function streamOpenAIToAnthropic(res, nodeStream, model, requestId,
             index: blockIndex,
             delta: { type: 'text_delta', text: d.content },
           });
-          outputTokens++; // rough estimate if not provided
+          outputTokens += Math.max(1, Math.ceil(d.content.length / 4));
         }
 
         // Tool calls
@@ -206,7 +207,7 @@ export async function streamGeminiToAnthropic(res, nodeStream, model, requestId,
         for (const part of parts) {
           if (part.text) {
             send('content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: part.text } });
-            outputTokens++;
+            outputTokens += Math.max(1, Math.ceil(part.text.length / 4));
           }
         }
 
@@ -306,7 +307,7 @@ export async function streamBedrockToAnthropic(res, bedrockStream, model, reques
             index: blockIndex,
             delta: { type: 'text_delta', text: delta.text },
           });
-          outputTokens++;
+          outputTokens += Math.max(1, Math.ceil(delta.text.length / 4));
         } else if (delta.toolUse) {
           const tBlock = toolBlocks[idx];
           if (tBlock && delta.toolUse.input) {

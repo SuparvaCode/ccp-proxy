@@ -5,6 +5,7 @@ import { getProvider } from '../providers/index.js';
 import { getProviders, getCachedModels, getSettings } from '../db/store.js';
 import { recordUsage } from '../utils/rateLimiter.js';
 import { finalizeLog } from '../middleware/logger.js';
+import { estimateInputTokens } from '../utils/tokenEstimator.js';
 
 const router = Router();
 
@@ -95,13 +96,16 @@ router.post('/messages', async (req, res) => {
     }
   } catch { /* non-fatal — proceed with client-provided values */ }
 
+  const estimatedInputTokens = estimateInputTokens(body);
+
   const onComplete = ({ inputTokens = 0, outputTokens = 0 } = {}) => {
-    recordUsage(resolved.provider_id, { inputTokens, outputTokens });
+    const finalInput = inputTokens > 0 ? inputTokens : estimatedInputTokens;
+    recordUsage(resolved.provider_id, { inputTokens: finalInput, outputTokens });
     finalizeLog(req, {
       provider_id: resolved.provider_id,
       model_id: resolved.model_id,
       claude_variant: resolved.claude_variant,
-      input_tokens: inputTokens,
+      input_tokens: finalInput,
       output_tokens: outputTokens,
       status: 200,
     });
