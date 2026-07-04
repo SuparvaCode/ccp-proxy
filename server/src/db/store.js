@@ -498,6 +498,10 @@ async function seedProviders() {
     { id: 'lmstudio', name: 'LM Studio', type: 'local', base_url: 'http://localhost:1234' },
     { id: 'llamacpp', name: 'llama.cpp', type: 'local', base_url: 'http://localhost:8080' },
     { id: 'bedrock', name: 'Amazon Bedrock', type: 'cloud', base_url: '' },
+    { id: 'moonshot', name: 'Kimi (Moonshot)', type: 'cloud', base_url: 'https://api.moonshot.cn' },
+    { id: 'zhipu', name: 'GLM (Zhipu AI)', type: 'cloud', base_url: 'https://open.bigmodel.cn/api/paas/v4' },
+    { id: 'minimax', name: 'MiniMax', type: 'cloud', base_url: 'https://api.minimax.chat' },
+    { id: 'yi', name: '01.AI (Yi)', type: 'cloud', base_url: 'https://api.lingyiwanwu.com' },
   ];
   for (const p of PROVIDERS) {
     await db.execute({

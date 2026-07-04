@@ -10,8 +10,21 @@ import { streamOpenAIToAnthropic } from '../translators/streaming.js';
 export class OpenAICompatProvider extends BaseProvider {
   constructor(config) { super(config); }
 
-  modelsEndpoint() { return `${this.baseUrl}/v1/models`; }
-  chatEndpoint() { return `${this.baseUrl}/v1/chat/completions`; }
+  modelsEndpoint() {
+    const base = this.baseUrl.replace(/\/$/, '');
+    if (base.endsWith('/v1') || base.endsWith('/v4') || base.includes('/v1/') || base.includes('/v4/')) {
+      return `${base}/models`;
+    }
+    return `${base}/v1/models`;
+  }
+
+  chatEndpoint() {
+    const base = this.baseUrl.replace(/\/$/, '');
+    if (base.endsWith('/v1') || base.endsWith('/v4') || base.includes('/v1/') || base.includes('/v4/')) {
+      return `${base}/chat/completions`;
+    }
+    return `${base}/v1/chat/completions`;
+  }
 
   async listModels() {
     try {

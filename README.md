@@ -37,7 +37,7 @@ You point your client at `http://127.0.0.1:8082` instead of Anthropic's servers,
 
 ## Features
 
-- **16 providers out of the box** — cloud and local (see table below)
+- **20 providers out of the box** — cloud and local (see table below)
 - **SSE streaming** — full server-sent event translation so streaming responses work exactly like Anthropic's
 - **Tool / function calling** — passes tool schemas and results through correctly
 - **Reasoning/thinking blocks** — DeepSeek R1 and Gemini thinking tokens surfaced as Anthropic thinking blocks
@@ -217,6 +217,10 @@ Open **http://127.0.0.1:8082/admin** after starting the server.
 | xAI (Grok) | `xai` | Cloud | |
 | Cohere | `cohere` | Cloud | |
 | Amazon Bedrock | `bedrock` | Cloud | IAM credentials or gateway |
+| Kimi (Moonshot) | `moonshot` | Cloud | OpenAI-compatible endpoint |
+| GLM (Zhipu AI) | `zhipu` | Cloud | OpenAI-compatible endpoint |
+| MiniMax | `minimax` | Cloud | OpenAI-compatible endpoint |
+| 01.AI (Yi) | `yi` | Cloud | OpenAI-compatible endpoint |
 | Ollama | `ollama` | Local | Runs on `localhost:11434` |
 | LM Studio | `lmstudio` | Local | Runs on `localhost:1234` |
 | llama.cpp | `llamacpp` | Local | Runs on `localhost:8080` |

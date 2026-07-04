@@ -14,6 +14,7 @@ import { OllamaProvider } from './ollama.js';
 import { LMStudioProvider } from './lmstudio.js';
 import { LlamaCppProvider } from './llamacpp.js';
 import { BedrockProvider } from './bedrock.js';
+import { OpenAICompatProvider } from './openaicompat.js';
 
 export const PROVIDER_CLASSES = {
   google: GoogleProvider,
@@ -32,6 +33,10 @@ export const PROVIDER_CLASSES = {
   lmstudio: LMStudioProvider,
   llamacpp: LlamaCppProvider,
   bedrock: BedrockProvider,
+  moonshot: OpenAICompatProvider,
+  zhipu: OpenAICompatProvider,
+  minimax: OpenAICompatProvider,
+  yi: OpenAICompatProvider,
 };
 
 /**
