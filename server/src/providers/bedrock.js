@@ -201,30 +201,35 @@ export class BedrockProvider extends BaseProvider {
       mergedMessages.pop();
     }
 
+    // ── Step 3: Translate to Bedrock content format ───────────────────────────
+    // IMPORTANT: Some block types (e.g. 'thinking' from Claude extended thinking)
+    // are not supported by Bedrock's Converse API. We skip them. If a message
+    // ends up with EMPTY content after skipping, we drop the entire message
+    // (pushing an empty-content message breaks Bedrock's turn-alternation check).
     const bedrockMessages = [];
     for (const msg of mergedMessages) {
       const role = msg.role;
       const content = [];
 
       if (typeof msg.content === 'string') {
-        content.push({ text: msg.content });
+        if (msg.content) content.push({ text: msg.content });
       } else if (Array.isArray(msg.content)) {
         for (const block of msg.content) {
           if (block.type === 'text') {
-            content.push({ text: block.text });
+            if (block.text) content.push({ text: block.text });
+          } else if (block.type === 'thinking' || block.type === 'redacted_thinking') {
+            // Extended thinking blocks — not supported by Bedrock Converse API. Skip.
+            console.log(`[bedrock] Skipping "${block.type}" block (not supported by Bedrock Converse API)`);
           } else if (block.type === 'image') {
             const mime = block.source?.media_type || '';
             let format = 'jpeg';
             if (mime.includes('png')) format = 'png';
             else if (mime.includes('gif')) format = 'gif';
             else if (mime.includes('webp')) format = 'webp';
-
             content.push({
               image: {
                 format,
-                source: {
-                  bytes: Buffer.from(block.source.data, 'base64'),
-                },
+                source: { bytes: Buffer.from(block.source.data, 'base64') },
               },
             });
           } else if (block.type === 'tool_use') {
@@ -240,7 +245,6 @@ export class BedrockProvider extends BaseProvider {
             const textContent = Array.isArray(block.content)
               ? block.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
               : (typeof block.content === 'string' ? block.content : '');
-
             content.push({
               toolResult: {
                 toolUseId: block.tool_use_id,
@@ -248,16 +252,51 @@ export class BedrockProvider extends BaseProvider {
                 status: isError ? 'error' : 'ok',
               },
             });
+          } else {
+            console.log(`[bedrock] Skipping unknown block type: "${block.type}"`);
           }
         }
       }
 
-      bedrockMessages.push({ role, content });
+      // Skip messages with empty content — pushing empty arrays would create a
+      // phantom turn that breaks Bedrock's strict role-alternation requirement.
+      if (content.length === 0) {
+        console.log(`[bedrock] Skipping "${role}" message with empty content after translation`);
+      } else {
+        bedrockMessages.push({ role, content });
+      }
     }
+
+    // ── Step 4: Re-merge consecutive same-role messages created by empty-msg filtering
+    const finalMessages = [];
+    for (const msg of bedrockMessages) {
+      const last = finalMessages[finalMessages.length - 1];
+      if (last && last.role === msg.role) {
+        last.content = [...last.content, ...msg.content];
+        console.log(`[bedrock] Re-merged consecutive "${msg.role}" messages after empty-content filtering`);
+      } else {
+        finalMessages.push(msg);
+      }
+    }
+
+    // ── Step 5: Absolute final safety — last message MUST be user ────────────
+    while (finalMessages.length > 0 && finalMessages[finalMessages.length - 1].role !== 'user') {
+      console.warn(`[bedrock] Final safety: dropping trailing "${finalMessages[finalMessages.length - 1].role}" message`);
+      finalMessages.pop();
+    }
+    if (finalMessages.length === 0) {
+      // Extreme edge case: all messages were filtered out. Add a placeholder so
+      // the request doesn't crash the server with an empty messages array.
+      console.warn('[bedrock] Final safety: all messages filtered out, inserting placeholder user message');
+      finalMessages.push({ role: 'user', content: [{ text: 'continue' }] });
+    }
+
+    // ── Debug: log final sequence ─────────────────────────────────────────────
+    console.log(`[bedrock] Sending ${finalMessages.length} messages: [${finalMessages.map(m => m.role).join(' → ')}]`);
 
     const input = {
       modelId,
-      messages: bedrockMessages,
+      messages: finalMessages,
     };
 
     if (system) {
