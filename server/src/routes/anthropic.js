@@ -121,12 +121,24 @@ router.post('/messages', async (req, res) => {
     }
   } catch (e) {
     console.error(`[${resolved.provider_id}]`, e.message);
-    finalizeLog(req, { provider_id: resolved.provider_id, model_id: resolved.model_id, status: e.status || 500, error_message: e.message });
+
+    // Map provider error codes to appropriate HTTP status
+    let httpStatus = e.status || 500;
+    let errorType = 'api_error';
+    if (e.status === 429) errorType = 'rate_limit_error';
+    else if (e.status === 503 || e.code === 'ECONNRESET') { httpStatus = 503; errorType = 'overloaded_error'; }
+    else if (e.status === 504) errorType = 'api_error';
+
+    finalizeLog(req, { provider_id: resolved.provider_id, model_id: resolved.model_id, status: httpStatus, error_message: e.message });
 
     if (!res.headersSent) {
-      res.status(e.status || 500).json({
+      // Propagate retry-after for rate-limit errors so clients can back off
+      if (e.status === 429 && e.retryAfter) {
+        res.setHeader('retry-after', e.retryAfter);
+      }
+      res.status(httpStatus).json({
         type: 'error',
-        error: { type: 'api_error', message: e.message, provider: resolved.provider_id },
+        error: { type: errorType, message: e.message, provider: resolved.provider_id },
       });
     }
   }
