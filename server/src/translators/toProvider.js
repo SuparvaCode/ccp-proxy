@@ -18,7 +18,12 @@ export function toOpenAI(anthropicBody, targetModel) {
 
   // Convert messages
   for (const msg of (messages || [])) {
-    oaiMessages.push(convertMessage(msg));
+    const converted = convertMessage(msg);
+    if (Array.isArray(converted)) {
+      oaiMessages.push(...converted);
+    } else {
+      oaiMessages.push(converted);
+    }
   }
 
   const body = {

@@ -221,7 +221,7 @@ export class BedrockProvider extends BaseProvider {
               toolResult: {
                 toolUseId: block.tool_use_id,
                 content: [{ text: textContent || 'Success' }],
-                status: isError ? 'error' : 'ok',
+                status: isError ? 'error' : 'success',
               },
             });
           }
