@@ -61,7 +61,7 @@ router.post('/messages', async (req, res) => {
     return res.status(400).json({ type: 'error', error: { type: 'invalid_request_error', message: e.message } });
   }
 
-  const provider = await getProvider(resolved.provider_id);
+
 
   // Attach resolved info to body for provider adapters
   body._resolvedModel = resolved.model_id;
@@ -112,6 +112,8 @@ router.post('/messages', async (req, res) => {
   };
 
   try {
+    const provider = await getProvider(resolved.provider_id);
+
     if (isStream) {
       await provider.completeStream(body, res, requestId, onComplete);
     } else {

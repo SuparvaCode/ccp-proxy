@@ -68,7 +68,7 @@ router.post('/responses', async (req, res) => {
     return res.status(400).json({ error: { message: e.message } });
   }
 
-  const provider = await getProvider(resolved.provider_id);
+
   anthropicBody._resolvedModel = resolved.model_id;
 
   const estimatedInputTokens = estimateInputTokens(anthropicBody);
@@ -80,6 +80,9 @@ router.post('/responses', async (req, res) => {
   };
 
   try {
+    const provider = await getProvider(resolved.provider_id);
+    anthropicBody._resolvedModel = resolved.model_id;
+
     if (isStream) {
       await provider.completeStream(anthropicBody, res, requestId, onComplete);
     } else {
@@ -94,7 +97,8 @@ router.post('/responses', async (req, res) => {
     }
   } catch (e) {
     console.error(`[openai-responses][${resolved.provider_id}]`, e.message);
-    if (!res.headersSent) res.status(e.status || 500).json({ error: { message: e.message } });
+    const httpStatus = e.status || 500;
+    if (!res.headersSent) res.status(httpStatus).json({ error: { message: e.message } });
   }
 });
 
