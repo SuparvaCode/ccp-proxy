@@ -177,8 +177,32 @@ export class BedrockProvider extends BaseProvider {
     }
     anthropicBody._prefill = prefill;
 
-    const bedrockMessages = [];
+    // ── Merge consecutive same-role messages ──────────────────────────────────
+    // Bedrock Converse API requires strict user→assistant alternation.
+    // Claude Code's agentic tool loops can produce consecutive same-role messages.
+    const mergedMessages = [];
     for (const msg of cleanMessages) {
+      const last = mergedMessages[mergedMessages.length - 1];
+      if (last && last.role === msg.role) {
+        // Merge content arrays / strings into the previous message
+        const prevContent = Array.isArray(last.content) ? last.content : [{ type: 'text', text: last.content || '' }];
+        const newContent = Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content || '' }];
+        last.content = [...prevContent, ...newContent];
+        console.log(`[bedrock] Merged consecutive "${msg.role}" messages to satisfy alternating-role requirement`);
+      } else {
+        mergedMessages.push({ role: msg.role, content: Array.isArray(msg.content) ? [...msg.content] : msg.content });
+      }
+    }
+
+    // Safety: if after merging the last message is still assistant, drop it.
+    // This shouldn't happen after the prefill strip above, but guard just in case.
+    while (mergedMessages.length > 0 && mergedMessages[mergedMessages.length - 1].role === 'assistant') {
+      console.log('[bedrock] Dropping trailing assistant message to satisfy user-last requirement');
+      mergedMessages.pop();
+    }
+
+    const bedrockMessages = [];
+    for (const msg of mergedMessages) {
       const role = msg.role;
       const content = [];
 
@@ -221,7 +245,7 @@ export class BedrockProvider extends BaseProvider {
               toolResult: {
                 toolUseId: block.tool_use_id,
                 content: [{ text: textContent || 'Success' }],
-                status: isError ? 'error' : 'success',
+                status: isError ? 'error' : 'ok',
               },
             });
           }

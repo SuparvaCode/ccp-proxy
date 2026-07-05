@@ -3,7 +3,7 @@
  * Most cloud providers use OpenAI-compatible Chat Completions format.
  */
 
-export function toOpenAI(anthropicBody, targetModel) {
+export function toOpenAI(anthropicBody, targetModel, opts = {}) {
   const { messages, system, max_tokens, temperature, top_p, top_k, stop_sequences, tools, tool_choice, stream } = anthropicBody;
 
   const oaiMessages = [];
@@ -19,6 +19,7 @@ export function toOpenAI(anthropicBody, targetModel) {
   // Convert messages
   for (const msg of (messages || [])) {
     const converted = convertMessage(msg);
+    // convertMessage may return an array (for tool results) or a single object
     if (Array.isArray(converted)) {
       oaiMessages.push(...converted);
     } else {
@@ -35,7 +36,10 @@ export function toOpenAI(anthropicBody, targetModel) {
   if (max_tokens) body.max_tokens = max_tokens;
   if (temperature !== undefined) body.temperature = temperature;
   if (top_p !== undefined) body.top_p = top_p;
-  if (top_k !== undefined) body.top_k = top_k;
+  // top_k is NOT part of the standard OpenAI spec.
+  // Providers like NVIDIA NIM use a strict schema validator that rejects unknown fields.
+  // Only forward it if the caller explicitly opts in.
+  if (top_k !== undefined && !opts.stripTopK) body.top_k = top_k;
   if (stop_sequences && stop_sequences.length) body.stop = stop_sequences;
 
   // Tools
