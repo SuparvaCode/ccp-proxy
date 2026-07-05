@@ -163,10 +163,24 @@ export class BedrockProvider extends BaseProvider {
   translateToBedrock(anthropicBody, modelId) {
     const { messages, system, max_tokens, temperature, top_p, stop_sequences, tools } = anthropicBody;
 
+    // Extract system role messages from the messages array
+    const systemMessagesText = [];
+    const cleanMessages = [];
+    for (const msg of (messages || [])) {
+      if (msg.role === 'system') {
+        const text = typeof msg.content === 'string'
+          ? msg.content
+          : (Array.isArray(msg.content) ? msg.content.filter(b => b.type === 'text').map(b => b.text).join('\n') : String(msg.content));
+        if (text) systemMessagesText.push(text);
+        console.log('[bedrock] Extracted system message from messages array and merged into system prompt');
+      } else {
+        cleanMessages.push(msg);
+      }
+    }
+
     // Bedrock Converse API throws an error if the last message has role='assistant' (prefill).
     // Pop the final assistant message if present, and save its content to prepend to response logic.
     let prefill = '';
-    const cleanMessages = [...(messages || [])];
     if (cleanMessages.length > 0 && cleanMessages[cleanMessages.length - 1].role === 'assistant') {
       const lastMsg = cleanMessages.pop();
       if (typeof lastMsg.content === 'string') {
@@ -299,11 +313,18 @@ export class BedrockProvider extends BaseProvider {
       messages: finalMessages,
     };
 
+    let finalSystemText = '';
     if (system) {
-      const sysText = Array.isArray(system)
+      finalSystemText = Array.isArray(system)
         ? system.map(b => (typeof b === 'string' ? b : b.text || '')).join('\n')
         : system;
-      input.system = [{ text: sysText }];
+    }
+    if (systemMessagesText.length > 0) {
+      finalSystemText = (finalSystemText ? finalSystemText + '\n' : '') + systemMessagesText.join('\n');
+    }
+
+    if (finalSystemText) {
+      input.system = [{ text: finalSystemText }];
     }
 
     const infConfig = {};
